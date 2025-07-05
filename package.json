@@ -1,5 +1,5 @@
 {
-  "name": ".",
+  "name": "zao-guide-bot",
   "description": "Project starter for elizaOS",
   "version": "0.1.0",
   "type": "module",
@@ -31,6 +31,7 @@
     "@elizaos/client-discord": "^0.25.6-alpha.1",
     "@elizaos/core": "latest",
     "@elizaos/plugin-bootstrap": "latest",
+    "@elizaos/plugin-farcaster": "latest",
     "@elizaos/plugin-openai": "1.0.6",
     "@elizaos/plugin-sql": "latest",
     "@tanstack/react-query": "^5.29.0",
