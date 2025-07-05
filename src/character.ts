@@ -37,7 +37,7 @@ export const character: Character = {
       : []),
     ...(process.env.TELEGRAM_BOT_TOKEN ? ['@elizaos/plugin-telegram'] : []),
     ...(process.env.FARCASTER_NEYNAR_API_KEY &&
-    process.env.FARCASTER_NEYNAR_SIGNER_UUID &&
+    process.env.FARCASTER_SIGNER_UUID &&
     process.env.FARCASTER_FID
       ? ['@elizaos/plugin-farcaster']
       : []),
@@ -86,9 +86,9 @@ export const character: Character = {
     },
     // Farcaster-specific settings
     farcaster: {
-      enablePost: true,
-      postIntervalMin: 8, // Minimum hours between posts
-      postIntervalMax: 24, // Maximum hours between posts
+      enableCast: true,
+      castIntervalMin: 8, // Minimum hours between posts
+      castIntervalMax: 24, // Maximum hours between posts
       enableActionProcessing: true,
       actionInterval: 15, // Minutes between checking for new interactions
       maxCastLength: 320, // Maximum length of a cast
