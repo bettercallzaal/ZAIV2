@@ -2,8 +2,12 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy files
+# Copy package.json and bundle files
+COPY ./package.json /app/
 COPY ./bundle/ /app/bundle/
+
+# Install only the discord.js and other required dependencies
+RUN npm install discord.js @discordjs/rest
 
 # Create a dedicated healthcheck server (separate from the bot)
 RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.js
@@ -19,7 +23,7 @@ sleep 5\n\
 \n\
 echo "Starting ZAO AI bot..."\n\
 # Run the bot but don't let it crash the container\n\
-node /app/bundle/bundle.cjs || echo "Bot exited with error"\n\
+NODE_PATH=/app/node_modules node /app/bundle/bundle.cjs || echo "Bot exited with error"\n\
 \n\
 echo "Bot process ended, keeping container alive for healthcheck"\n\
 # Keep container alive\n\

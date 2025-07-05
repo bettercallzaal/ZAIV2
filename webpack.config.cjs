@@ -1,4 +1,5 @@
 const path = require('path');
+const nodeExternals = require('webpack-node-externals');
 
 module.exports = {
   target: 'node',
@@ -11,6 +12,8 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.js'],
   },
+  // Don't bundle these modules, but include them in the bundle as external dependencies
+  externals: [nodeExternals()],
   optimization: {
     minimize: false
   },
