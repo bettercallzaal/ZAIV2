@@ -2,43 +2,37 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy only the bundle directory and the start script
+# Copy files
 COPY ./bundle/ /app/bundle/
-COPY ./start.sh /app/start.sh
+COPY ./debug.js /app/debug.js
 
-# Make the start script executable
-RUN chmod +x /app/start.sh
-
-# Create healthcheck file
+# Create combined script for both debug and healthcheck
 RUN echo 'const http = require("http"); \n\
 const server = http.createServer((req, res) => { \n\
   res.writeHead(200, { "Content-Type": "text/plain" }); \n\
   res.end("ZAO AI Bot is running"); \n\
 }); \n\
 \n\
-server.listen(process.env.PORT || 3000); \n\
-console.log("Healthcheck server running on port " + (process.env.PORT || 3000));' > /app/healthcheck.js
-
-# Create a startup script
-RUN echo '#!/bin/bash\n\
-echo "Starting ZAO AI Bot..."\n\
-node /app/bundle/bundle.cjs > /proc/1/fd/1 2>/proc/1/fd/2 &\n\
-BOT_PID=$!\n\
-echo "Bot started with PID: $BOT_PID"\n\
+server.listen(process.env.PORT || 8080); \n\
+console.log("Healthcheck server running on port 8080");\n\
 \n\
-echo "Starting healthcheck server..."\n\
-node /app/healthcheck.js > /proc/1/fd/1 2>/proc/1/fd/2 &\n\
-HEALTH_PID=$!\n\
-echo "Healthcheck server started with PID: $HEALTH_PID"\n\
+// Debug output\n\
+console.log("\n\n==== DEBUGGING ELIZAOS BOT ====");\n\
+console.log("Node.js version:", process.version);\n\
+console.log("Current directory:", process.cwd());\n\
+console.log("Environment variables:", Object.keys(process.env));\n\
 \n\
-wait $BOT_PID\n\
-wait $HEALTH_PID' > /app/start-services.sh
-
-# Make it executable
-RUN chmod +x /app/start-services.sh
+console.log("\nAttempting to load bundled bot...");\n\
+try {\n\
+  require("./bundle/bundle.cjs");\n\
+  console.log("Bundle loaded successfully!");\n\
+} catch (error) {\n\
+  console.error("ERROR LOADING BUNDLE:", error);\n\
+  console.error(error.stack);\n\
+}' > /app/combined.js
 
 # Expose port for healthcheck
-EXPOSE 3000
+EXPOSE 8080
 
-# Set the entrypoint command
-CMD ["/app/start-services.sh"]
+# Run with full logging
+CMD ["node", "/app/combined.js"]
