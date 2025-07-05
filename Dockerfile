@@ -8,6 +8,7 @@ COPY minimal-test.js /app/
 COPY check-exports.js /app/
 COPY star-import.js /app/
 COPY actual-exports-test.js /app/
+COPY final-test.js /app/
 
 # Create a simple package.json with only required dependencies
 RUN echo '{"type":"module","dependencies":{"@elizaos/core":"^0.1.0","@elizaos/plugin-discord":"^0.1.0"}}' > /app/simple-package.json
@@ -38,13 +39,9 @@ echo "NPM version: $(npm --version)"\n\
 echo "Directory contents:"\n\
 ls -la\n\
 \n\
-# Run the star import test first\n\
-echo "Running star import test..."\n\
-node --no-warnings --experimental-modules star-import.js || echo "Star import test exited with error code: $?"\n\
-\n\
-# Run the actual exports test\n\
-echo "\nRunning actual exports test..."\n\
-node --no-warnings --experimental-modules actual-exports-test.js || echo "Actual exports test exited with error code: $?"\n\
+# Run the final test\n\
+echo "Running final test..."\n\
+node --no-warnings --experimental-modules final-test.js || echo "Final test exited with error code: $?"\n\
 \n\
 echo "Test script ended, keeping container alive for healthcheck"\n\
 # Keep container alive\n\
