@@ -11,13 +11,13 @@ COPY tsconfig.json /app/
 # Install all dependencies (including devDependencies)
 RUN npm install
 
-# Create a dedicated healthcheck server (separate from the bot)
-RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.js
+# Create a dedicated healthcheck server (separate from the bot) with .cjs extension for CommonJS
+RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.cjs
 
 # Create a simple startup script
 RUN echo '#!/bin/bash\n\
 echo "Starting healthcheck server..."\n\
-node /app/healthcheck.js &\n\
+node /app/healthcheck.cjs &\n\
 echo "Healthcheck server started"\n\
 echo "Healthcheck server PID: $!"\n\
 \n\
