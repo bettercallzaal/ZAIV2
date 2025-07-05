@@ -19,8 +19,26 @@ const server = http.createServer((req, res) => { \n\
 server.listen(process.env.PORT || 3000); \n\
 console.log("Healthcheck server running on port " + (process.env.PORT || 3000));' > /app/healthcheck.js
 
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+echo "Starting ZAO AI Bot..."\n\
+node /app/bundle/bundle.cjs > /proc/1/fd/1 2>/proc/1/fd/2 &\n\
+BOT_PID=$!\n\
+echo "Bot started with PID: $BOT_PID"\n\
+\n\
+echo "Starting healthcheck server..."\n\
+node /app/healthcheck.js > /proc/1/fd/1 2>/proc/1/fd/2 &\n\
+HEALTH_PID=$!\n\
+echo "Healthcheck server started with PID: $HEALTH_PID"\n\
+\n\
+wait $BOT_PID\n\
+wait $HEALTH_PID' > /app/start-services.sh
+
+# Make it executable
+RUN chmod +x /app/start-services.sh
+
 # Expose port for healthcheck
 EXPOSE 3000
 
-# Set the entrypoint command - run both the bot and healthcheck
-CMD ["sh", "-c", "node /app/bundle/bundle.cjs & node /app/healthcheck.js"]
+# Set the entrypoint command
+CMD ["/app/start-services.sh"]
