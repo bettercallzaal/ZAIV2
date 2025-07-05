@@ -6,15 +6,7 @@ WORKDIR /app
 COPY ./bundle/ /app/bundle/
 
 # Create a dedicated healthcheck server (separate from the bot)
-RUN echo 'const http = require("http");
-
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("ZAO AI Bot Healthcheck");
-});
-
-server.listen(process.env.PORT || 8080);
-console.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.js
+RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.js
 
 # Create a simple startup script
 RUN echo '#!/bin/bash\n\
