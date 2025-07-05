@@ -7,6 +7,7 @@ COPY package*.json /app/
 COPY src/ /app/src/
 COPY dist/ /app/dist/
 COPY tsconfig.json /app/
+COPY debug-elizaos.js /app/
 
 # Install all dependencies (including devDependencies)
 RUN npm install
@@ -28,8 +29,19 @@ echo "Starting ElizaOS bot..."\n\
 # Set required environment variables for Railway\n\
 export DAEMON_PROCESS=true\n\
 \n\
-# Run the bot as an ES module\n\
-node --no-warnings --experimental-modules --es-module-specifier-resolution=node dist/index.js || echo "Bot exited with error"\n\
+# Run the bot as an ES module with debug logging\n\
+echo "DEBUG: Node.js version: $(node --version)"\n\
+echo "DEBUG: Listing dist directory:"\n\
+ls -la dist/\n\
+echo "DEBUG: Checking for index.js:"\n\
+cat dist/index.js | head -n 20\n\
+echo "DEBUG: Setting NODE_DEBUG=*"\n\
+export NODE_DEBUG=*\n\
+echo "DEBUG: Running ElizaOS debug script first..."\n\
+node --trace-warnings --no-warnings --experimental-modules --es-module-specifier-resolution=node debug-elizaos.js || echo "Debug script exited with error: $?"\n\
+\n\
+echo "DEBUG: Starting main bot with verbose logging"\n\
+node --trace-warnings --no-warnings --experimental-modules --es-module-specifier-resolution=node dist/index.js || echo "Bot exited with error: $?"\n\
 \n\
 echo "Bot process ended, keeping container alive for healthcheck"\n\
 # Keep container alive\n\
