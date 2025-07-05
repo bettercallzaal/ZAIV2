@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "chmod +x setup.sh && ./setup.sh"
+
+[deploy]
+startCommand = "node bundle/bundle.cjs & node bundle/healthcheck.js"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "ALWAYS"
