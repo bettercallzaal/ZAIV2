@@ -2,9 +2,10 @@ FROM node:20
 
 WORKDIR /app
 
-# Copy only essential files
+# Copy essential files
 COPY package.json /app/
 COPY minimal-test.js /app/
+COPY check-exports.js /app/
 
 # Create a simple package.json with only required dependencies
 RUN echo '{"type":"module","dependencies":{"@elizaos/core":"^0.1.0","@elizaos/plugin-discord":"^0.1.0"}}' > /app/simple-package.json
@@ -35,7 +36,12 @@ echo "NPM version: $(npm --version)"\n\
 echo "Directory contents:"\n\
 ls -la\n\
 \n\
+# Run the exports check script first\n\
+echo "Running exports check script..."\n\
+node --no-warnings --experimental-modules check-exports.js || echo "Exports check script exited with error code: $?"\n\
+\n\
 # Run the minimal test script\n\
+echo "\nRunning minimal test script..."\n\
 node --no-warnings --experimental-modules minimal-test.js || echo "Test script exited with error code: $?"\n\
 \n\
 echo "Test script ended, keeping container alive for healthcheck"\n\
