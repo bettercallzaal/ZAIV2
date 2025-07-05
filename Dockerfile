@@ -1,16 +1,23 @@
-FROM node:20-slim
-
-# Install git (needed for npm install)
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+FROM node:20 AS deps
 
 WORKDIR /app
 
-# Copy package.json and bundle files
-COPY ./package.json /app/
-COPY ./bundle/ /app/bundle/
+# Create minimal package.json for discord.js
+RUN echo '{"dependencies":{"discord.js":"^14.0.0"}}' > package.json
 
-# Install only the discord.js and other required dependencies
-RUN npm install discord.js @discordjs/rest
+# Install only discord.js
+RUN npm install --only=production
+
+# Final image
+FROM node:20-slim
+
+WORKDIR /app
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules /app/node_modules
+
+# Copy bundle
+COPY ./bundle/ /app/bundle/
 
 # Create a dedicated healthcheck server (separate from the bot)
 RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.js
