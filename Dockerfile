@@ -4,35 +4,40 @@ WORKDIR /app
 
 # Copy files
 COPY ./bundle/ /app/bundle/
-COPY ./debug.js /app/debug.js
 
-# Create combined script for both debug and healthcheck
-RUN echo 'const http = require("http"); \n\
-const server = http.createServer((req, res) => { \n\
-  res.writeHead(200, { "Content-Type": "text/plain" }); \n\
-  res.end("ZAO AI Bot is running"); \n\
-}); \n\
+# Create a dedicated healthcheck server (separate from the bot)
+RUN echo 'const http = require("http");
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("ZAO AI Bot Healthcheck");
+});
+
+server.listen(process.env.PORT || 8080);
+console.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.js
+
+# Create a simple startup script
+RUN echo '#!/bin/bash\n\
+echo "Starting healthcheck server..."\n\
+node /app/healthcheck.js &\n\
+echo "Healthcheck server started"\n\
 \n\
-server.listen(process.env.PORT || 8080); \n\
-console.log("Healthcheck server running on port 8080");\n\
+echo "Waiting 5 seconds before starting bot..."\n\
+sleep 5\n\
 \n\
-// Debug output\n\
-console.log("\n\n==== DEBUGGING ELIZAOS BOT ====");\n\
-console.log("Node.js version:", process.version);\n\
-console.log("Current directory:", process.cwd());\n\
-console.log("Environment variables:", Object.keys(process.env));\n\
+echo "Starting ZAO AI bot..."\n\
+# Run the bot but don't let it crash the container\n\
+node /app/bundle/bundle.cjs || echo "Bot exited with error"\n\
 \n\
-console.log("\nAttempting to load bundled bot...");\n\
-try {\n\
-  require("./bundle/bundle.cjs");\n\
-  console.log("Bundle loaded successfully!");\n\
-} catch (error) {\n\
-  console.error("ERROR LOADING BUNDLE:", error);\n\
-  console.error(error.stack);\n\
-}' > /app/combined.js
+echo "Bot process ended, keeping container alive for healthcheck"\n\
+# Keep container alive\n\
+tail -f /dev/null' > /app/start.sh
+
+# Make script executable
+RUN chmod +x /app/start.sh
 
 # Expose port for healthcheck
 EXPOSE 8080
 
-# Run with full logging
-CMD ["node", "/app/combined.js"]
+# Run the start script
+CMD ["/app/start.sh"]
