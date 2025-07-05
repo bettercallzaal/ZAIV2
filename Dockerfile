@@ -2,8 +2,11 @@ FROM node:20 AS deps
 
 WORKDIR /app
 
-# Copy actual package.json to get all dependencies
+# Copy package files
 COPY ./package.json /app/
+
+# Force ElizaOS to use CommonJS
+ENV NODE_OPTIONS="--experimental-modules --es-module-specifier-resolution=node"
 
 # Install ElizaOS packages and Discord.js
 RUN npm install --only=production @elizaos/core @elizaos/plugin-discord @elizaos/plugin-farcaster discord.js
@@ -33,7 +36,8 @@ sleep 5\n\
 \n\
 echo "Starting ZAO AI bot..."\n\
 # Run the bot but don't let it crash the container\n\
-NODE_PATH=/app/node_modules node /app/bundle/bundle.cjs || echo "Bot exited with error"\n\
+export DAEMON_PROCESS=true\n\
+NODE_PATH=/app/node_modules NODE_OPTIONS="--experimental-modules --es-module-specifier-resolution=node" node /app/bundle/bundle.cjs || echo "Bot exited with error"\n\
 \n\
 echo "Bot process ended, keeping container alive for healthcheck"\n\
 # Keep container alive\n\
