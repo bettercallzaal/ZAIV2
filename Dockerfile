@@ -2,11 +2,11 @@ FROM node:20 AS deps
 
 WORKDIR /app
 
-# Create minimal package.json for discord.js
-RUN echo '{"dependencies":{"discord.js":"^14.0.0"}}' > package.json
+# Copy actual package.json to get all dependencies
+COPY ./package.json /app/
 
-# Install only discord.js
-RUN npm install --only=production
+# Install ElizaOS packages and Discord.js
+RUN npm install --only=production @elizaos/core @elizaos/plugin-discord @elizaos/plugin-farcaster discord.js
 
 # Final image
 FROM node:20-slim
