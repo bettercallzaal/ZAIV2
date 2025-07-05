@@ -34,18 +34,8 @@ export class ZAOBotService {
       // Check required environment variables
       this._validateEnvironment();
       
-      // Create service
-      logger.info('Creating ElizaOS service...');
-      this.service = ElizaCore.defineService({
-        name: this.config.name,
-        description: this.config.description
-      });
-      
-      if (!this.service) {
-        throw new Error('Failed to create ElizaOS service');
-      }
-      
-      logger.info('Service created successfully');
+      // Initialize service
+      await this._initializeService();
       
       // Initialize Discord plugin
       await this._initializeDiscordPlugin();
@@ -60,6 +50,53 @@ export class ZAOBotService {
       return true;
     } catch (error) {
       logger.error('Failed to initialize ZAO Bot Service:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Initialize the ElizaOS service
+   * @private
+   */
+  async _initializeService() {
+    try {
+      logger.info('Initializing ElizaOS service...');
+      
+      // Check if defineService is available
+      const defineService = ElizaCore.defineService;
+      if (typeof defineService !== 'function') {
+        throw new Error('defineService is not a function');
+      }
+      
+      // Create service
+      const serviceConfig = {
+        name: this.config.name || 'ZAO Bot Service',
+        description: this.config.description || 'An AI guide bot powered by ElizaOS',
+      };
+      
+      logger.info('Creating service with config:', JSON.stringify(serviceConfig));
+      this.service = defineService(serviceConfig);
+      
+      if (!this.service) {
+        throw new Error('Failed to create service');
+      }
+      
+      // Log service properties to help with debugging
+      logger.info('Service type:', typeof this.service);
+      
+      // Based on logs, the service might be a function with static methods
+      if (typeof this.service === 'function') {
+        logger.info('Service is a function, checking for static methods');
+        const staticMethods = Object.getOwnPropertyNames(this.service);
+        logger.info('Static methods:', staticMethods);
+      } else {
+        const serviceMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.service));
+        logger.info('Service instance methods:', serviceMethods);
+      }
+      
+      logger.info('ElizaOS service initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize ElizaOS service:', error);
       throw error;
     }
   }
@@ -80,10 +117,25 @@ export class ZAOBotService {
       
       logger.info('Starting ZAO Bot Service...');
       
+      // Based on logs, we need to initialize the Discord plugin first
+      if (this.discordPlugin && typeof this.discordPlugin.init === 'function') {
+        logger.info('Initializing Discord plugin...');
+        await this.discordPlugin.init();
+        logger.info('Discord plugin initialized');
+      }
+      
       // Try different approaches to start the service
       if (typeof this.service.start === 'function') {
         logger.info('Using service.start() method');
-        await this.service.start();
+        // The error suggests we need to call start() directly on the service class/constructor
+        // not on the service instance
+        if (typeof this.service.constructor.start === 'function') {
+          logger.info('Using service.constructor.start() method');
+          await this.service.constructor.start(this.service);
+        } else {
+          // Try the instance method
+          await this.service.start();
+        }
       } else if (this.discordPlugin && typeof this.discordPlugin.start === 'function') {
         logger.info('Using discordPlugin.start() method');
         await this.discordPlugin.start();
@@ -170,28 +222,39 @@ export class ZAOBotService {
     try {
       logger.info('Initializing Discord plugin...');
       
-      // Check if DiscordPlugin is a constructor function
-      if (typeof DiscordPlugin !== 'function') {
-        logger.warn('DiscordPlugin is not a constructor function:', typeof DiscordPlugin);
+      // From the logs, we can see DiscordPlugin is an object with init method
+      if (typeof DiscordPlugin === 'object') {
+        logger.info('Using DiscordPlugin as object');
+        this.discordPlugin = DiscordPlugin;
         
-        // If it's an object with a default export, try to use that
-        if (typeof DiscordPlugin === 'object' && DiscordPlugin.default) {
-          logger.info('Using DiscordPlugin.default');
-          this.discordPlugin = new DiscordPlugin.default({
-            token: process.env.DISCORD_API_TOKEN,
-            applicationId: process.env.DISCORD_APPLICATION_ID,
-            intents: ['Guilds', 'GuildMessages', 'MessageContent', 'DirectMessages'],
-          });
-        } else {
-          throw new Error('Unable to initialize Discord plugin: invalid plugin type');
+        // Configure the plugin
+        if (!this.discordPlugin.config) {
+          this.discordPlugin.config = {};
         }
-      } else {
-        // Normal case - DiscordPlugin is a constructor
+        
+        this.discordPlugin.config.token = process.env.DISCORD_API_TOKEN;
+        this.discordPlugin.config.applicationId = process.env.DISCORD_APPLICATION_ID;
+        this.discordPlugin.config.intents = ['Guilds', 'GuildMessages', 'MessageContent', 'DirectMessages'];
+        
+        logger.info('Discord plugin configuration set');
+      } else if (typeof DiscordPlugin === 'function') {
+        // Try as constructor
+        logger.info('Using DiscordPlugin as constructor');
         this.discordPlugin = new DiscordPlugin({
           token: process.env.DISCORD_API_TOKEN,
           applicationId: process.env.DISCORD_APPLICATION_ID,
           intents: ['Guilds', 'GuildMessages', 'MessageContent', 'DirectMessages'],
         });
+      } else if (typeof DiscordPlugin.default === 'function') {
+        // Try default export as constructor
+        logger.info('Using DiscordPlugin.default as constructor');
+        this.discordPlugin = new DiscordPlugin.default({
+          token: process.env.DISCORD_API_TOKEN,
+          applicationId: process.env.DISCORD_APPLICATION_ID,
+          intents: ['Guilds', 'GuildMessages', 'MessageContent', 'DirectMessages'],
+        });
+      } else {
+        throw new Error('Unable to initialize Discord plugin: invalid plugin type');
       }
       
       if (!this.discordPlugin) {
@@ -264,8 +327,21 @@ export class ZAOBotService {
    */
   async _registerComponents() {
     try {
-      // Register Discord plugin
+      // From the logs, we can see the Discord plugin has services property
+      // which suggests it might need to be registered differently
       if (this.discordPlugin) {
+        // If the plugin has a services property, it might be a collection of services
+        if (this.discordPlugin.services && Array.isArray(this.discordPlugin.services)) {
+          logger.info('Discord plugin has services array, registering each service...');
+          for (const service of this.discordPlugin.services) {
+            if (typeof this.service.registerService === 'function') {
+              logger.info(`Registering Discord service: ${service.name || 'unnamed'}`);
+              this.service.registerService(service);
+            }
+          }
+        }
+        
+        // Try standard plugin registration methods
         if (typeof this.service.registerPlugin === 'function') {
           logger.info('Registering Discord plugin with service...');
           this.service.registerPlugin(this.discordPlugin);

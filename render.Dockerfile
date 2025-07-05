@@ -11,18 +11,13 @@ RUN npm install --omit=dev @elizaos/core @elizaos/plugin-discord
 # Copy source files
 COPY src/ ./src/
 
-# Create dist directory if it doesn't exist
-RUN mkdir -p dist
-
-# Copy src to dist as we're using ES modules directly
-RUN cp -r src/* dist/
-
 # Create a simple healthcheck server
 RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.cjs
 
 # Set environment variables
 ENV DAEMON_PROCESS=true
 ENV NODE_ENV=production
+ENV DEBUG=elizaos:*
 
 # Create a startup script
 RUN echo '#!/bin/bash\n\
@@ -31,7 +26,8 @@ echo "Starting ZAO AI Bot on Render..."\n\
 # Start healthcheck server\n\
 echo "Starting healthcheck server..."\n\
 node /app/healthcheck.cjs &\n\
-echo "Healthcheck server started with PID: $!"\n\
+HEALTHCHECK_PID=$!\n\
+echo "Healthcheck server started with PID: $HEALTHCHECK_PID"\n\
 \n\
 # Print environment info\n\
 echo "Node.js version: $(node --version)"\n\
@@ -40,12 +36,17 @@ echo "Directory contents:"\n\
 ls -la\n\
 echo "Source files:"\n\
 ls -la src/\n\
-echo "Dist files:"\n\
-ls -la dist/\n\
 \n\
 # Run the bot as an ES module\n\
 echo "Starting ZAO AI Bot..."\n\
-node --no-warnings --experimental-modules --es-module-specifier-resolution=node dist/index.js\n\
+node --no-warnings --trace-warnings --experimental-modules --es-module-specifier-resolution=node src/index.js\n\
+# If the bot exits, keep the container alive for logs\n\
+if [ $? -ne 0 ]; then\n\
+  echo "Bot exited with error code: $?"\n\
+  echo "Keeping container alive for log inspection"\n\
+  # Keep the healthcheck server running\n\
+  wait $HEALTHCHECK_PID\n\
+fi\n\
 ' > /app/start.sh
 
 # Make script executable
