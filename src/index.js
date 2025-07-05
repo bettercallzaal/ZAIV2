@@ -1,5 +1,5 @@
 // Main entry point for ZAO AI Bot
-import { startBot } from './bot.js';
+import ZAOBotService from './bot-service.js';
 
 console.log('=== ZAO AI Bot ===');
 console.log('Node version:', process.version);
@@ -10,15 +10,25 @@ if (process.env.DAEMON_PROCESS === 'true') {
   console.log('Running in daemon mode (non-interactive)');
 }
 
-// Start the bot
+// Create and start the bot service
 try {
-  console.log('Initializing bot...');
-  startBot()
+  console.log('Creating bot service...');
+  const botService = new ZAOBotService({
+    name: 'ZAO AI Bot',
+    description: 'An AI guide bot powered by ElizaOS'
+  });
+  
+  console.log('Initializing bot service...');
+  botService.initialize()
     .then(() => {
-      console.log('Bot started successfully');
+      console.log('Bot service initialized, starting...');
+      return botService.start();
+    })
+    .then(() => {
+      console.log('Bot service started successfully');
     })
     .catch((error) => {
-      console.error('Failed to start bot:', error);
+      console.error('Failed to start bot service:', error);
       process.exit(1);
     });
 } catch (error) {
@@ -26,12 +36,4 @@ try {
   process.exit(1);
 }
 
-// Keep the process alive
-if (process.env.DAEMON_PROCESS === 'true') {
-  console.log('Process will be kept alive');
-  
-  // Prevent the Node.js process from exiting
-  setInterval(() => {
-    console.log('Bot is still running:', new Date().toISOString());
-  }, 60 * 60 * 1000); // Log once per hour
-}
+// Process is kept alive by the bot service in daemon mode
