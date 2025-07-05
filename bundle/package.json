@@ -1,0 +1,7 @@
+{
+  "name": "zao-guide-bot-bundle",
+  "version": "1.0.0",
+  "description": "Bundled version of the ZAO Guide Bot",
+  "type": "commonjs",
+  "main": "bundle.js"
+}
