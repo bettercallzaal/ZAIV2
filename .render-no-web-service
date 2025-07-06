@@ -1,0 +1,1 @@
+This file prevents Render from port scanning the worker service.
