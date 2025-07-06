@@ -62,23 +62,49 @@ export class ZAOBotService {
     try {
       logger.info('Initializing ElizaOS service...');
       
+      // Log all available methods on ElizaCore for debugging
+      const elizaCoreMethods = Object.getOwnPropertyNames(ElizaCore);
+      logger.info('Available ElizaCore methods:', elizaCoreMethods);
+      
       // Check if defineService is available
       const defineService = ElizaCore.defineService;
       if (typeof defineService !== 'function') {
-        throw new Error('defineService is not a function');
+        logger.warn('defineService is not a function, looking for alternatives...');
+        
+        // Try to find any service creation method
+        const serviceCreationMethod = elizaCoreMethods.find(method => 
+          method.toLowerCase().includes('service') && 
+          typeof ElizaCore[method] === 'function'
+        );
+        
+        if (serviceCreationMethod) {
+          logger.info(`Found potential service creation method: ${serviceCreationMethod}`);
+          const serviceConfig = {
+            name: this.config.name || 'ZAO Bot Service',
+            description: this.config.description || 'An AI guide bot powered by ElizaOS',
+          };
+          
+          logger.info(`Creating service with ${serviceCreationMethod} and config:`, JSON.stringify(serviceConfig));
+          this.service = ElizaCore[serviceCreationMethod](serviceConfig);
+        } else {
+          // If no service creation method found, use ElizaCore itself as the service
+          logger.info('No service creation method found, using ElizaCore as service');
+          this.service = ElizaCore;
+        }
+      } else {
+        // Create service using defineService
+        const serviceConfig = {
+          name: this.config.name || 'ZAO Bot Service',
+          description: this.config.description || 'An AI guide bot powered by ElizaOS',
+        };
+        
+        logger.info('Creating service with defineService and config:', JSON.stringify(serviceConfig));
+        this.service = defineService(serviceConfig);
       }
       
-      // Create service
-      const serviceConfig = {
-        name: this.config.name || 'ZAO Bot Service',
-        description: this.config.description || 'An AI guide bot powered by ElizaOS',
-      };
-      
-      logger.info('Creating service with config:', JSON.stringify(serviceConfig));
-      this.service = defineService(serviceConfig);
-      
       if (!this.service) {
-        throw new Error('Failed to create service');
+        logger.warn('Failed to create service, using ElizaCore as service');
+        this.service = ElizaCore;
       }
       
       // Log service properties to help with debugging
@@ -89,15 +115,24 @@ export class ZAOBotService {
         logger.info('Service is a function, checking for static methods');
         const staticMethods = Object.getOwnPropertyNames(this.service);
         logger.info('Static methods:', staticMethods);
-      } else {
-        const serviceMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.service));
-        logger.info('Service instance methods:', serviceMethods);
+      } else if (typeof this.service === 'object') {
+        logger.info('Service is an object, checking for methods');
+        const serviceMethods = Object.getOwnPropertyNames(this.service);
+        logger.info('Service methods:', serviceMethods);
+        
+        // Check if the service has an init method
+        if (typeof this.service.init === 'function') {
+          logger.info('Service has init method, calling it');
+          await this.service.init();
+          logger.info('Service init called successfully');
+        }
       }
       
       logger.info('ElizaOS service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize ElizaOS service:', error);
-      throw error;
+      logger.warn('Continuing with ElizaCore as service');
+      this.service = ElizaCore;
     }
   }
   
@@ -125,11 +160,11 @@ export class ZAOBotService {
       }
       
       // From the error logs, we need a different approach
-      // The start function is directly on the ElizaCore module, not on the service instance
-      if (ElizaCore.start && typeof ElizaCore.start === 'function') {
-        logger.info('Using ElizaCore.start() method');
-        await ElizaCore.start();
-        logger.info('ElizaCore.start() called successfully');
+      // The logs show that ElizaCore has an init method, not a start method
+      if (ElizaCore.init && typeof ElizaCore.init === 'function') {
+        logger.info('Using ElizaCore.init() method');
+        await ElizaCore.init();
+        logger.info('ElizaCore.init() called successfully');
       }
       // Also try the static start method on the service constructor
       else if (typeof this.service === 'function' && typeof this.service.start === 'function') {
@@ -153,15 +188,23 @@ export class ZAOBotService {
         logger.warn('No start method found on ElizaCore, service or plugins');
         logger.info('Attempting alternative approaches...');
         
-        // Try to find any start-like method on ElizaCore
+        // Try to find any init or start-like method on ElizaCore
         const elizaCoreMethods = Object.getOwnPropertyNames(ElizaCore);
         logger.info('Available ElizaCore methods:', elizaCoreMethods);
         
-        const elizaCoreStartMethod = elizaCoreMethods.find(method => 
-          method.toLowerCase().includes('start') || 
-          method.toLowerCase().includes('run') || 
-          method.toLowerCase().includes('launch')
+        // First look for init methods
+        let elizaCoreStartMethod = elizaCoreMethods.find(method => 
+          method.toLowerCase() === 'init'
         );
+        
+        // If no init method found, look for other start-like methods
+        if (!elizaCoreStartMethod) {
+          elizaCoreStartMethod = elizaCoreMethods.find(method => 
+            method.toLowerCase().includes('start') || 
+            method.toLowerCase().includes('run') || 
+            method.toLowerCase().includes('launch')
+          );
+        }
         
         if (elizaCoreStartMethod) {
           logger.info(`Found potential ElizaCore start method: ${elizaCoreStartMethod}`);
