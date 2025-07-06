@@ -3,7 +3,7 @@ services:
   - type: worker
     name: zao-guide-bot
     env: docker
-    dockerfilePath: ./standalone.Dockerfile
+    dockerfilePath: ./Dockerfile
     plan: free
     envVars:
       - key: DISCORD_API_TOKEN

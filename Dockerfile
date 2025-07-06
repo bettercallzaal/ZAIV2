@@ -1,51 +1,54 @@
-FROM node:20
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copy essential files
-COPY package.json /app/
-COPY minimal-test.js /app/
-COPY check-exports.js /app/
-COPY star-import.js /app/
-COPY actual-exports-test.js /app/
-COPY final-test.js /app/
+# Copy package files first for better caching
+COPY package.json package-lock.json ./
 
-# Create a simple package.json with only required dependencies
-RUN echo '{"type":"module","dependencies":{"@elizaos/core":"^0.1.0","@elizaos/plugin-discord":"^0.1.0"}}' > /app/simple-package.json
+# Install only the required dependencies
+RUN npm install --omit=dev discord.js winston
 
-# Install only the essential dependencies
-RUN npm install --omit=dev --omit=optional @elizaos/core @elizaos/plugin-discord
+# Copy all source files
+COPY . .
 
-# Create a dedicated healthcheck server
-RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("ZAO AI Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.cjs
+# Create diagnostic log directory
+RUN mkdir -p /app/logs
 
-# Create a simple startup script
+# Create .render-no-web-service file to prevent port scanning
+RUN touch /app/.render-no-web-service
+
+# Create healthcheck server file
+RUN echo 'const http = require("http");\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("Discord Bot Healthcheck");\n});\n\nserver.listen(process.env.PORT || 8080);\nconsole.log("Healthcheck server running on port " + (process.env.PORT || 8080));' > /app/healthcheck.cjs
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV RENDER_SERVICE_TYPE=worker
+
+# Create startup script
 RUN echo '#!/bin/bash\n\
-echo "Starting healthcheck server..."\n\
+echo "[STARTUP] $(date): Starting Standalone Discord Bot" > /app/logs/startup.log\n\
+\n\
+# Start healthcheck server\n\
 node /app/healthcheck.cjs &\n\
-echo "Healthcheck server started"\n\
-echo "Healthcheck server PID: $!"\n\
-\n\
-echo "Waiting 3 seconds before starting minimal test..."\n\
-sleep 3\n\
-\n\
-echo "Starting minimal ElizaOS test..."\n\
-# Set required environment variables\n\
-export DAEMON_PROCESS=true\n\
+HEALTHCHECK_PID=$!\n\
 \n\
 # Print environment info\n\
-echo "Node.js version: $(node --version)"\n\
-echo "NPM version: $(npm --version)"\n\
-echo "Directory contents:"\n\
-ls -la\n\
+echo "Node.js version: $(node --version)" | tee -a /app/logs/startup.log\n\
+echo "NPM version: $(npm --version)" | tee -a /app/logs/startup.log\n\
+echo "Directory contents:" | tee -a /app/logs/startup.log\n\
+ls -la | tee -a /app/logs/startup.log\n\
 \n\
-# Run the final test\n\
-echo "Running final test..."\n\
-node --no-warnings --experimental-modules final-test.js || echo "Final test exited with error code: $?"\n\
+# Run the standalone discord bot\n\
+echo "Starting Discord Bot..." | tee -a /app/logs/startup.log\n\
+node --experimental-modules standalone-discord-bot.js 2>&1 | tee -a /app/logs/bot.log\n\
 \n\
-echo "Test script ended, keeping container alive for healthcheck"\n\
-# Keep container alive\n\
-tail -f /dev/null' > /app/start.sh
+# If the bot exits, keep the container alive for logs\n\
+if [ $? -ne 0 ]; then\n\
+  echo "Bot exited with error code: $?" | tee -a /app/logs/startup.log\n\
+  echo "Keeping container alive for log inspection" | tee -a /app/logs/startup.log\n\
+  # Keep the healthcheck server running\n\
+  wait $HEALTHCHECK_PID\n\
+fi' > /app/start.sh
 
 # Make script executable
 RUN chmod +x /app/start.sh
@@ -53,9 +56,5 @@ RUN chmod +x /app/start.sh
 # Expose port for healthcheck
 EXPOSE 8080
 
-# Set environment variables
-ENV RAILWAY_DEPLOYMENT=true
-ENV DAEMON_PROCESS=true
-
-# Run the start script
+# Command to run
 CMD ["/app/start.sh"]
