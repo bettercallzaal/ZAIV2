@@ -27,6 +27,22 @@ function log(level, message) {
   console.log(`${timestamp} ${level.toUpperCase()}: ${message}`);
 }
 
+// Check if a channel is accessible
+async function isChannelAccessible(channelId) {
+  try {
+    // Try to get channel info
+    await discordRequest(`${DISCORD_API.CHANNELS}/${channelId}`);
+    return true;
+  } catch (error) {
+    if (error.message.includes('Missing Access') || error.message.includes('code: 50001')) {
+      return false;
+    }
+    // For other errors, assume it might be accessible
+    log('warn', `Error checking channel accessibility: ${error.message}`);
+    return true;
+  }
+}
+
 // Healthcheck server
 function startHealthcheckServer() {
   const server = http.createServer((req, res) => {
@@ -154,8 +170,14 @@ async function processMessages(channelId, lastMessageId) {
     
     return lastMessageId;
   } catch (error) {
-    log('error', `Error processing messages: ${error.message}`);
-    return lastMessageId;
+    // Check if it's a permission error
+    if (error.message.includes('Missing Access') || error.message.includes('code: 50001')) {
+      // Don't log every permission error, just return null to mark channel as inaccessible
+      return null;
+    } else {
+      log('error', `Error processing messages: ${error.message}`);
+      return lastMessageId;
+    }
   }
 }
 
@@ -207,7 +229,15 @@ async function main() {
         // Store channel IDs
         for (const channel of textChannels) {
           log('info', `  - Channel: ${channel.name} (${channel.id})`);
-          channels[channel.id] = null; // null last message ID means start from latest
+          
+          // Check if the channel is accessible before adding it
+          const accessible = await isChannelAccessible(channel.id);
+          if (accessible) {
+            log('info', `    Channel is accessible`);
+            channels[channel.id] = '0'; // Start with '0' to get recent messages
+          } else {
+            log('warn', `    Channel is not accessible due to permissions. Skipping.`);
+          }
         }
       } catch (error) {
         log('error', `Failed to get channels for guild ${guild.id}: ${error.message}`);
@@ -219,9 +249,19 @@ async function main() {
     // Poll for new messages every 5 seconds
     setInterval(async () => {
       for (const channelId in channels) {
+        // Skip channels that have been marked as inaccessible (null)
+        if (channels[channelId] === null) continue;
+        
         try {
           // Process messages and update last message ID
-          channels[channelId] = await processMessages(channelId, channels[channelId]);
+          const result = await processMessages(channelId, channels[channelId]);
+          
+          // If result is null, the channel is inaccessible
+          if (result === null) {
+            log('warn', `Channel ${channelId} is inaccessible due to permissions. Skipping future polls.`);
+          }
+          
+          channels[channelId] = result;
         } catch (error) {
           log('error', `Error polling channel ${channelId}: ${error.message}`);
         }
