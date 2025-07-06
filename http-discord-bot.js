@@ -807,6 +807,7 @@ async function main() {
     log('info', 'Bot startup complete and running');
     
     // Poll for new messages every 5 seconds
+    log('info', '==== INITIALIZING MESSAGE POLLING SYSTEM ====');
     setInterval(async () => {
       for (const channelId in channels) {
         // Skip channels that have been marked as inaccessible (null)
