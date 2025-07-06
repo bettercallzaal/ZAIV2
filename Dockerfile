@@ -3,7 +3,7 @@ FROM node:20-slim
 WORKDIR /app
 
 # Copy package files first for better caching
-COPY package.json package-lock.json ./
+COPY package.json ./
 
 # Install only the required dependencies
 RUN npm install --omit=dev discord.js winston
