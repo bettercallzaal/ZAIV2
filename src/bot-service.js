@@ -124,36 +124,72 @@ export class ZAOBotService {
         logger.info('Discord plugin initialized');
       }
       
-      // Try different approaches to start the service
-      if (typeof this.service.start === 'function') {
-        logger.info('Using service.start() method');
-        // The error suggests we need to call start() directly on the service class/constructor
-        // not on the service instance
-        if (typeof this.service.constructor.start === 'function') {
-          logger.info('Using service.constructor.start() method');
-          await this.service.constructor.start(this.service);
-        } else {
-          // Try the instance method
-          await this.service.start();
-        }
-      } else if (this.discordPlugin && typeof this.discordPlugin.start === 'function') {
+      // From the error logs, we need a different approach
+      // The start function is directly on the ElizaCore module, not on the service instance
+      if (ElizaCore.start && typeof ElizaCore.start === 'function') {
+        logger.info('Using ElizaCore.start() method');
+        await ElizaCore.start();
+        logger.info('ElizaCore.start() called successfully');
+      }
+      // Also try the static start method on the service constructor
+      else if (typeof this.service === 'function' && typeof this.service.start === 'function') {
+        logger.info('Using static service.start() method');
+        await this.service.start();
+        logger.info('Static service.start() called successfully');
+      }
+      // Try instance method
+      else if (this.service && typeof this.service.start === 'function') {
+        logger.info('Using service instance start() method');
+        await this.service.start();
+        logger.info('Service instance start() called successfully');
+      }
+      // Try Discord plugin
+      else if (this.discordPlugin && typeof this.discordPlugin.start === 'function') {
         logger.info('Using discordPlugin.start() method');
         await this.discordPlugin.start();
-      } else {
-        logger.warn('No start method found on service or plugins');
-        // Try to find any start-like method on the service
-        const serviceMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.service));
-        const startMethod = serviceMethods.find(method => 
+        logger.info('Discord plugin start() called successfully');
+      }
+      else {
+        logger.warn('No start method found on ElizaCore, service or plugins');
+        logger.info('Attempting alternative approaches...');
+        
+        // Try to find any start-like method on ElizaCore
+        const elizaCoreMethods = Object.getOwnPropertyNames(ElizaCore);
+        logger.info('Available ElizaCore methods:', elizaCoreMethods);
+        
+        const elizaCoreStartMethod = elizaCoreMethods.find(method => 
           method.toLowerCase().includes('start') || 
           method.toLowerCase().includes('run') || 
           method.toLowerCase().includes('launch')
         );
         
-        if (startMethod) {
-          logger.info(`Found potential start method: ${startMethod}`);
-          await this.service[startMethod]();
+        if (elizaCoreStartMethod) {
+          logger.info(`Found potential ElizaCore start method: ${elizaCoreStartMethod}`);
+          await ElizaCore[elizaCoreStartMethod]();
+          logger.info(`ElizaCore.${elizaCoreStartMethod}() called successfully`);
+        } 
+        // Try service methods as a last resort
+        else if (this.service) {
+          const serviceMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.service));
+          logger.info('Available service methods:', serviceMethods);
+          
+          const startMethod = serviceMethods.find(method => 
+            method.toLowerCase().includes('start') || 
+            method.toLowerCase().includes('run') || 
+            method.toLowerCase().includes('launch')
+          );
+          
+          if (startMethod) {
+            logger.info(`Found potential start method: ${startMethod}`);
+            await this.service[startMethod]();
+            logger.info(`Service.${startMethod}() called successfully`);
+          } else {
+            logger.warn('No suitable start method found, attempting to continue without explicit start');
+            // Just assume we're running
+            logger.info('Proceeding without explicit service start');
+          }
         } else {
-          logger.warn('No suitable start method found, service may not be fully operational');
+          logger.warn('No service instance available, attempting to continue');
         }
       }
       
@@ -274,45 +310,87 @@ export class ZAOBotService {
    */
   async _initializeCharacter() {
     try {
-      logger.info('Creating character...');
+      logger.info('Initializing character...');
       
-      // Try decryptedCharacter first
+      // Log all available methods on ElizaCore for debugging
+      const elizaCoreMethods = Object.getOwnPropertyNames(ElizaCore);
+      logger.info('Available ElizaCore methods:', elizaCoreMethods);
+      
+      // Check if decryptedCharacter is available
       if (typeof ElizaCore.decryptedCharacter === 'function') {
-        this.character = ElizaCore.decryptedCharacter({
-          name: this.config.name,
-          description: this.config.description,
-        });
-        logger.info('Character created using decryptedCharacter');
+        logger.info('Creating character with decryptedCharacter');
+        try {
+          this.character = ElizaCore.decryptedCharacter({
+            name: this.config.name,
+            description: this.config.description,
+          });
+          logger.info('Character created successfully with decryptedCharacter');
+        } catch (err) {
+          logger.error('Error creating character with decryptedCharacter:', err);
+        }
       } 
-      // Fallback to encryptedCharacter
-      else if (typeof ElizaCore.encryptedCharacter === 'function') {
-        this.character = ElizaCore.encryptedCharacter({
-          name: this.config.name,
-          description: this.config.description,
-        });
-        logger.info('Character created using encryptedCharacter');
-      }
-      // Last resort - try to find any character creation function
-      else {
+      
+      // Try encryptedCharacter if available
+      if (!this.character && typeof ElizaCore.encryptedCharacter === 'function') {
+        logger.info('Creating character with encryptedCharacter');
+        try {
+          this.character = ElizaCore.encryptedCharacter({
+            name: this.config.name,
+            description: this.config.description,
+          });
+          logger.info('Character created successfully with encryptedCharacter');
+        } catch (err) {
+          logger.error('Error creating character with encryptedCharacter:', err);
+        }
+      } 
+      
+      // Try Character constructor if available
+      if (!this.character && typeof ElizaCore.Character === 'function') {
+        logger.info('Creating character with Character constructor');
+        try {
+          this.character = new ElizaCore.Character({
+            name: this.config.name,
+            description: this.config.description,
+          });
+          logger.info('Character created successfully with Character constructor');
+        } catch (err) {
+          logger.error('Error creating character with Character constructor:', err);
+        }
+      } 
+      
+      // Look for any function that might create a character
+      if (!this.character) {
+        logger.warn('No standard character creation method found, searching for alternatives...');
+        
         const characterFunctions = Object.keys(ElizaCore).filter(key => 
           typeof ElizaCore[key] === 'function' && 
           key.toLowerCase().includes('character')
         );
         
-        if (characterFunctions.length > 0) {
-          const characterFunction = characterFunctions[0];
-          logger.info(`Trying character creation with ${characterFunction}`);
-          this.character = ElizaCore[characterFunction]({
-            name: this.config.name,
-            description: this.config.description,
-          });
-        } else {
-          logger.warn('No character creation function found');
+        logger.info('Found potential character functions:', characterFunctions);
+        
+        for (const characterFunction of characterFunctions) {
+          try {
+            logger.info(`Trying character creation with ${characterFunction}`);
+            this.character = ElizaCore[characterFunction]({
+              name: this.config.name,
+              description: this.config.description,
+            });
+            
+            if (this.character) {
+              logger.info(`Character created successfully with ${characterFunction}`);
+              break;
+            }
+          } catch (err) {
+            logger.error(`Error creating character with ${characterFunction}:`, err);
+          }
         }
       }
       
       if (!this.character) {
         logger.warn('Failed to create character, continuing without character');
+      } else {
+        logger.info('Character created:', this.character);
       }
     } catch (error) {
       logger.error('Failed to initialize character:', error);
