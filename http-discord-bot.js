@@ -376,19 +376,33 @@ async function handleQuestion(channelId, question, username) {
 // Process messages from a channel
 async function processMessages(channelId, lastMessageId) {
   try {
-    // Get most recent messages (we'll use 'after' if we have a lastMessageId)
-    let endpoint = `${DISCORD_API.CHANNELS}/${channelId}/messages?limit=10`;
-    if (lastMessageId) {
-      // Use after to only get new messages after the last one we processed
-      endpoint += `&after=${lastMessageId}`;
+    // Always get the most recent messages (we'll track which ones we've processed)
+    const endpoint = `${DISCORD_API.CHANNELS}/${channelId}/messages?limit=20`;
+    
+    // Keep track of processed message IDs to avoid duplicate processing
+    if (!global.processedMessages) {
+      global.processedMessages = new Set();
     }
     
     const messages = await discordRequest(endpoint);
     
     log('info', `Retrieved ${messages.length} messages from channel ${channelId}`);
     
-    // Process messages in reverse order (oldest first)
-    for (const message of messages.reverse()) {
+    // Process messages (newest first, which is the default from Discord API)
+    for (const message of messages) {
+      // Skip already processed messages
+      if (global.processedMessages.has(message.id)) continue;
+      
+      // Mark as processed
+      global.processedMessages.add(message.id);
+      
+      // Limit the size of the set to avoid memory issues
+      if (global.processedMessages.size > 1000) {
+        // Convert to array, slice, and convert back to set
+        const array = Array.from(global.processedMessages);
+        global.processedMessages = new Set(array.slice(-500));
+      }
+      
       // Skip messages from bots
       if (message.author.bot) continue;
       
@@ -406,39 +420,18 @@ async function processMessages(channelId, lastMessageId) {
         
         switch (command) {
           case 'ping':
-            log('info', 'Responding to ?ping command');
             await sendMessage(channelId, 'Pong! The ZAO AI Bot is online and ready to help! 🌊');
             break;
-            
           case 'help':
-            log('info', 'Responding to ?help command');
-            await sendMessage(channelId, 'Welcome to ZAO AI! Here are the available commands:\n\n' +
-              '**Basic Commands:**\n' +
-              '`?ping` - Check if the bot is responsive\n' +
-              '`?help` - Show this help message\n\n' +
-              '**ZAO Information:**\n' +
-              '`?about` - Learn about The ZAO\n' +
-              '`?respect` - Information about $ZAO Respect tokens\n' +
-              '`?fractal` - Learn about ZAO Fractals\n' +
-              '`?events` - Information about upcoming events\n' +
-              '`?governance` - Learn about ZAO governance\n' +
-              '`?nexus` - Information about ZAO NEXUS\n' +
-              '`?web3` - How Web3 differs from Web2 for artists\n' +
-              '`?values` - Core values of The ZAO\n\n' +
-              '**Onboarding:**\n' +
-              '`?onboard` - Begin your ZAO onboarding journey\n' +
-              '`?resources` - Get links to important ZAO resources\n\n' +
-              'You can also mention me with any questions!');
+            await sendMessage(channelId, getHelpMessage());
             break;
-            
           case 'about':
-            await sendMessage(channelId, `**About The ZAO:**\n\n${ZAO_KNOWLEDGE.about}`);
+            await sendMessage(channelId, getAboutMessage());
             break;
-            
-          case 'respect':
-            await sendMessage(channelId, `**About $ZAO Respect Tokens:**\n\n${ZAO_KNOWLEDGE.respect}`);
+          case 'onboarding':
+          case 'welcome':
+            await sendMessage(channelId, getWelcomeMessage());
             break;
-            
           case 'fractal':
             await sendMessage(channelId, `**About ZAO Fractals:**\n\n${ZAO_KNOWLEDGE.fractal}`);
             break;
@@ -489,15 +482,24 @@ async function processMessages(channelId, lastMessageId) {
     }
     
     return lastMessageId;
-  } catch (error) {
-    // Check if it's a permission error
-    if (error.message.includes('Missing Access') || error.message.includes('code: 50001')) {
-      // Don't log every permission error, just return null to mark channel as inaccessible
-      return null;
-    } else {
-      log('error', `Error processing messages: ${error.message}`);
-      return lastMessageId;
+    
+    // Add a debug log to help troubleshoot if we have messages
+    if (messages && messages.length > 0) {
+      log('info', `Latest message ID: ${messages[0].id}`);
     }
+    
+    // Return "success" if we were able to process messages
+    return "success";
+  } catch (error) {
+    // If we get a 403 Forbidden, the channel is inaccessible
+    if (error.code === 403) {
+      log('error', `Channel ${channelId} is inaccessible due to permissions.`);
+      return null;
+    }
+    
+    // Otherwise log the error and continue
+    log('error', `Error processing messages for channel ${channelId}: ${error.message}`);
+    return "error";
   }
 }
 
