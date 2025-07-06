@@ -1,4 +1,5 @@
 // Main entry point for ZAO AI Bot
+import * as ElizaCore from '@elizaos/core';
 import ZAOBotService from './bot-service.js';
 
 console.log('=== ZAO AI Bot ===');
@@ -10,6 +11,10 @@ if (process.env.DAEMON_PROCESS === 'true') {
   console.log('Running in daemon mode (non-interactive)');
 }
 
+// Log available ElizaCore methods for debugging
+const elizaCoreMethods = Object.getOwnPropertyNames(ElizaCore);
+console.log('Available ElizaCore methods:', elizaCoreMethods);
+
 // Create and start the bot service
 try {
   console.log('Creating bot service...');
@@ -20,8 +25,25 @@ try {
   
   console.log('Initializing bot service...');
   botService.initialize()
-    .then(() => {
-      console.log('Bot service initialized, starting...');
+    .then(async () => {
+      console.log('Bot service initialized');
+      
+      // Get the service class from the bot service
+      const serviceClass = botService.serviceClass;
+      if (serviceClass && typeof serviceClass.start === 'function') {
+        console.log('Starting service directly using serviceClass.start()...');
+        try {
+          // Create a minimal runtime object
+          const runtime = {};
+          // Start the service directly
+          await serviceClass.start(runtime);
+          console.log('Service started directly using serviceClass.start()');
+        } catch (startError) {
+          console.error('Error starting service directly:', startError);
+        }
+      }
+      
+      console.log('Starting bot service...');
       return botService.start();
     })
     .then(() => {
