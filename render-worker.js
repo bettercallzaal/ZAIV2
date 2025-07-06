@@ -3,12 +3,13 @@
  * 
  * Special entry point for Render.com background worker deployment
  * This script handles proper worker initialization and advanced diagnostics
+ * Simplified to directly initialize the Discord bot without ElizaOS service registration
  */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as ElizaCore from '@elizaos/core';
-import ZAOBotService from './src/bot-service.js';
+import DiscordPlugin from '@elizaos/plugin-discord';
 import winston from 'winston';
 
 // Create __dirname equivalent for ES modules
@@ -112,106 +113,85 @@ process.on('unhandledRejection', (reason, promise) => {
   // Keep the process running despite the rejection
 });
 
-// Create and start the bot service directly
+// Create and start the Discord bot directly without ElizaOS service registration
 async function startBot() {
   try {
-    logger.info('Creating bot service...');
+    logger.info('Starting Discord bot directly...');
     
-    // Define service with explicit name and lifecycle methods
-    const serviceDefinition = {
-      name: 'ZAOBotService',
-      description: 'ZAO AI Guide Bot powered by ElizaOS',
-      start: async (runtime) => {
-        logger.info('[SERVICE] ZAOBotService start method called with runtime:', runtime ? 'provided' : 'undefined');
-        // Service-specific initialization logic
-        return true;
-      },
-      stop: async () => {
-        logger.info('[SERVICE] ZAOBotService stop method called');
-        return true;
-      }
+    // Check required environment variables
+    if (!process.env.DISCORD_API_TOKEN) {
+      throw new Error('DISCORD_API_TOKEN environment variable is required');
+    }
+    
+    if (!process.env.DISCORD_APPLICATION_ID) {
+      throw new Error('DISCORD_APPLICATION_ID environment variable is required');
+    }
+    
+    // Configure Discord plugin directly
+    const discordConfig = {
+      token: process.env.DISCORD_API_TOKEN,
+      applicationId: process.env.DISCORD_APPLICATION_ID
     };
     
-    // Create service instance with the definition
-    const botService = new ZAOBotService({
-      name: 'ZAO AI Bot',
-      description: 'An AI guide bot powered by ElizaOS',
-      serviceDefinition: serviceDefinition
-    });
+    logger.info('Creating Discord plugin instance...');
+    let discordPlugin;
     
-    // Explicitly register the service with ElizaCore
-    logger.info('Registering service with ElizaCore...');
-    
-    // Try all available registration methods
-    if (typeof ElizaCore.registerService === 'function') {
-      logger.info('Using ElizaCore.registerService method');
-      ElizaCore.registerService(serviceDefinition);
-    } else if (typeof ElizaCore.addService === 'function') {
-      logger.info('Using ElizaCore.addService method');
-      ElizaCore.addService(serviceDefinition);
-    } else if (Array.isArray(ElizaCore.services)) {
-      logger.info('Pushing to ElizaCore.services array');
-      ElizaCore.services.push(serviceDefinition);
+    // Initialize Discord plugin based on its type
+    if (typeof DiscordPlugin === 'function') {
+      // DiscordPlugin is a constructor
+      logger.info('Creating Discord plugin with constructor');
+      discordPlugin = new DiscordPlugin(discordConfig);
+    } else if (typeof DiscordPlugin === 'object') {
+      // DiscordPlugin is already an instance
+      logger.info('Using Discord plugin as object instance');
+      discordPlugin = DiscordPlugin;
+      discordPlugin.config = discordConfig;
     } else {
-      logger.warn('No method available to register service with ElizaCore');
+      throw new Error(`Unexpected Discord plugin type: ${typeof DiscordPlugin}`);
     }
     
-    logger.info('Initializing bot service...');
-    await botService.initialize();
-    logger.info('Bot service initialized');
+    // Log available methods on the Discord plugin
+    const discordPluginMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(discordPlugin) || {});
+    logger.info('Discord plugin methods:', discordPluginMethods);
     
-    // Direct initialization of Discord plugin
-    if (botService.discordPlugin) {
-      logger.info('[DIRECT] Initializing Discord plugin directly...');
-      try {
-        if (typeof botService.discordPlugin.init === 'function') {
-          await botService.discordPlugin.init();
-          logger.info('[DIRECT] Discord plugin initialized directly');
-        } else if (typeof botService.discordPlugin === 'function') {
-          // Handle case where plugin is a function
-          await botService.discordPlugin();
-          logger.info('[DIRECT] Discord plugin function called directly');
-        } else {
-          logger.error('[DIRECT] Discord plugin does not have an init method');
-        }
-      } catch (discordError) {
-        logger.error('[DIRECT] Failed to initialize Discord plugin:', discordError);
-      }
+    // Initialize the Discord plugin
+    logger.info('Initializing Discord plugin...');
+    if (typeof discordPlugin.init === 'function') {
+      await discordPlugin.init();
+      logger.info('Discord plugin initialized successfully');
+    } else {
+      throw new Error('Discord plugin does not have an init method');
     }
     
-    // Get the service class and start it directly
-    const serviceClass = botService.serviceClass || serviceDefinition;
-    if (serviceClass && typeof serviceClass.start === 'function') {
-      logger.info('[DIRECT] Starting service directly using serviceClass.start()...');
+    // Create a character if needed by the Discord plugin
+    if (typeof ElizaCore.decryptedCharacter === 'function') {
+      logger.info('Creating character with decryptedCharacter');
       try {
-        // Create a minimal runtime object with required properties
-        const runtime = {
-          config: {},
-          plugins: {},
-          services: {},
-          logger: logger
+        const characterConfig = {
+          name: 'ZAO Bot',
+          description: 'A bot for Render deployment'
         };
         
-        // Start the service directly
-        await serviceClass.start(runtime);
-        logger.info('[DIRECT] Service started directly using serviceClass.start()');
-      } catch (startError) {
-        logger.error('[DIRECT] Error starting service directly:', startError);
-        logger.info('[FALLBACK] Attempting to start service with botService.start()...');
-        await botService.start();
+        const character = await ElizaCore.decryptedCharacter(characterConfig);
+        logger.info('Character created successfully');
+        
+        // Register character with Discord plugin if needed
+        if (discordPlugin.setCharacter && typeof discordPlugin.setCharacter === 'function') {
+          discordPlugin.setCharacter(character);
+          logger.info('Character registered with Discord plugin');
+        }
+      } catch (err) {
+        logger.error('Error creating character:', err);
+        logger.info('Continuing without character');
       }
-    } else {
-      logger.warn('[DIRECT] No service class or start method available');
-      logger.info('[FALLBACK] Attempting to start service with botService.start()...');
-      await botService.start();
     }
     
     // Setup health check logging
     setInterval(() => {
-      logger.info('ZAO Bot Service is running: ' + new Date().toISOString());
+      logger.info('Discord bot is running: ' + new Date().toISOString());
     }, 60000); // Log every minute
     
-    return botService;
+    return discordPlugin;
   } catch (error) {
     logger.error('Failed to start bot service:', error);
     throw error;
@@ -221,9 +201,25 @@ async function startBot() {
 // Start the bot and handle errors
 startBot()
   .then(() => {
-    logger.info('Bot startup completed successfully');
+    logger.info('Discord bot startup completed successfully');
+    logger.info('Bot is now listening for Discord events');
   })
   .catch((error) => {
-    logger.error('Error during bot startup:', error);
+    logger.error('Error during Discord bot startup:', error);
+    logger.error('Stack trace:', error.stack);
     process.exit(1);
   });
+
+// Keep the process alive
+process.stdin.resume();
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  logger.info('Received SIGINT, shutting down...');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  logger.info('Received SIGTERM, shutting down...');
+  process.exit(0);
+});
