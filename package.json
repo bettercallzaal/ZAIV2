@@ -31,15 +31,18 @@
     "@elizaos/client-discord": "^0.25.6-alpha.1",
     "@elizaos/core": "latest",
     "@elizaos/plugin-bootstrap": "latest",
-    "@elizaos/plugin-farcaster": "latest",
+    "@elizaos/plugin-discord": "1.0.10",
+    "@elizaos/plugin-farcaster": "^1.0.5",
     "@elizaos/plugin-openai": "1.0.6",
     "@elizaos/plugin-sql": "latest",
     "@tanstack/react-query": "^5.29.0",
     "clsx": "^2.1.1",
+    "discord.js": "^14.14.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^4.1.10",
+    "winston": "^3.11.0",
     "zod": "3.24.2"
   },
   "devDependencies": {
@@ -49,12 +52,16 @@
     "prettier": "3.5.3",
     "tsup": "8.5.0",
     "typescript": "^5.6.3",
-    "vite": "^6.0.1"
+    "vite": "^6.0.1",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-node-externals": "^3.0.0"
   },
   "scripts": {
     "start": "elizaos start",
     "dev": "elizaos dev",
     "build": "tsc --noEmit && vite build && tsup",
+    "bundle": "webpack --config webpack.config.cjs",
     "lint": "prettier --write ./src",
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
