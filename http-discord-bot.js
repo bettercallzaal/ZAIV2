@@ -631,20 +631,30 @@ async function respondToInteraction(interactionId, interactionToken, response) {
 
 /**
  * Handle new guild member joining
+ * @param {string} guildId - Guild ID
  * @param {object} member - New guild member data
  */
 async function handleNewMember(guildId, member) {
   try {
-    // Get the system channel or first accessible text channel
-    const guildChannels = await discordRequest(`${DISCORD_API.GUILDS.replace('users/@me', `guilds/${guildId}`)}/channels`);
+    log('info', `Processing welcome for user ${member.user?.username || 'unknown'} in guild ${guildId}`);
+    
+    // Get guild channels using the proper endpoint format
+    const endpoint = `/guilds/${guildId}/channels`;
+    const guildChannels = await discordRequest(endpoint);
+    log('info', `Found ${guildChannels.length} channels in guild ${guildId}`);
+    
     let welcomeChannelId = null;
     
     // Try to find a welcome channel
     for (const channel of guildChannels) {
-      if (channel.name.includes('welcome') || channel.name.includes('introduction') || 
-          channel.name === 'general' || channel.name === 'lobby') {
+      if ((channel.name && (channel.name.includes('welcome') || channel.name.includes('introduction') || 
+          channel.name === 'general' || channel.name === 'lobby')) && 
+          channel.type === 0) { // 0 is text channel
+        
+        log('info', `Checking if channel #${channel.name} (${channel.id}) is accessible`);
         if (await isChannelAccessible(channel.id)) {
           welcomeChannelId = channel.id;
+          log('info', `Selected welcome channel: #${channel.name} (${channel.id})`);
           break;
         }
       }
@@ -652,25 +662,37 @@ async function handleNewMember(guildId, member) {
     
     // If no welcome channel found, use any text channel
     if (!welcomeChannelId) {
+      log('warn', 'No welcome channel found, looking for any accessible text channel');
       for (const channel of guildChannels) {
-        if (channel.type === 0 && await isChannelAccessible(channel.id)) { // 0 is text channel
-          welcomeChannelId = channel.id;
-          break;
+        if (channel.type === 0) { // 0 is text channel
+          if (await isChannelAccessible(channel.id)) {
+            welcomeChannelId = channel.id;
+            log('info', `Selected general channel: #${channel.name} (${channel.id})`);
+            break;
+          }
         }
       }
     }
     
     if (welcomeChannelId) {
-      const welcomeMessage = `Welcome to **The ZAO**, <@${member.user.id}>! 🌊\n\n` +
+      // Construct welcome message - make sure member.user.id exists
+      const userId = member.user?.id || 'new member';
+      const mentionTag = userId !== 'new member' ? `<@${userId}>` : 'new member';
+      
+      const welcomeMessage = `Welcome to **The ZAO**, ${mentionTag}! 🌊\n\n` +
         `I'm ${BOT_CONFIG.name}, your guide to this creative community. To help you get started:\n\n` +
-        `1️⃣ Introduce yourself in <#${welcomeChannelId}>\n` +
+        `1️⃣ Introduce yourself in this channel\n` +
         `2️⃣ Type \`!onboard\` for a quick start guide\n` +
         `3️⃣ Join our next community call (check \`!events\` for details)\n\n` +
         `The ZAO is a decentralized impact network for creators built on Web3 principles of ownership, community, and economic agency. ` +
         `We're excited to have you join us on this journey!\n\n` +
         `Type \`!help\` any time to see how I can assist you.`;
-        
+      
+      log('info', `Sending welcome message to channel ${welcomeChannelId}`);
       await sendMessage(welcomeChannelId, welcomeMessage);
+      log('info', 'Welcome message sent successfully');
+    } else {
+      log('error', 'No accessible channel found for welcome message');
     }
   } catch (error) {
     log('error', `Failed to handle new member: ${error.message}`);
@@ -784,18 +806,46 @@ async function main() {
           const lastCheckTime = lastMemberJoinChecks[guildId] || Date.now();
           
           try {
-            // Get guild members who joined after the last check
-            const endpoint = `/guilds/${guildId}/members?limit=10&after=${lastCheckTime}`;
-            const newMembers = await discordRequest(endpoint);
+            // Discord API doesn't actually support filtering by join time
+            // Instead, let's get the most recent members and process them
+            // if they haven't been welcomed yet
+            const endpoint = `/guilds/${guildId}/members?limit=5`;
+            log('info', `Checking for new members in guild ${guild.name} (${guildId})`);
+            
+            const recentMembers = await discordRequest(endpoint);
+            log('info', `Found ${recentMembers.length} recent members to check`);
+            
+            // Create a set of already processed members if it doesn't exist
+            if (!global.processedMembers) {
+              global.processedMembers = new Set();
+            }
+            
+            // Process each member only once
+            for (const member of recentMembers) {
+              if (member && member.user && !member.user.bot) {
+                const memberId = member.user.id;
+                
+                // Check if we've already processed this member
+                if (!global.processedMembers.has(memberId)) {
+                  log('info', `New member joined ${guild.name}: ${member.user.username}`);
+                  global.processedMembers.add(memberId);
+                  await handleNewMember(guildId, member);
+                }
+              }
+            }
             
             // Update last check time
             lastMemberJoinChecks[guildId] = Date.now();
             
-            // Welcome each new member
-            for (const member of newMembers) {
-              if (member && member.user && !member.user.bot) {
-                log('info', `New member joined ${guild.name}: ${member.user.username}`);
-                await handleNewMember(guildId, member);
+            // Limit the size of processedMembers to avoid memory leaks
+            if (global.processedMembers.size > 1000) {
+              log('info', 'Trimming processed members cache');
+              const entriesToRemove = global.processedMembers.size - 1000;
+              let count = 0;
+              for (const entry of global.processedMembers) {
+                global.processedMembers.delete(entry);
+                count++;
+                if (count >= entriesToRemove) break;
               }
             }
           } catch (error) {
