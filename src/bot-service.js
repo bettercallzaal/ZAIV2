@@ -24,7 +24,11 @@ export class ZAOBotService {
     this.service = null;
     this.character = null;
     this.discordPlugin = null;
+    this.serviceClass = null;
+    this.serviceDefinition = null;
     this.isRunning = false;
+    this.runtime = null;
+    this.keepAliveInterval = null;
   }
   
   /**
@@ -72,11 +76,24 @@ export class ZAOBotService {
       // Create service definition according to ElizaOS documentation
       const serviceDefinition = {
         serviceType: 'zao_bot',
+        name: 'ZAO AI Bot', // Important: name is required
         description: this.config.description || 'An AI guide bot powered by ElizaOS',
+        version: '1.0.0',
         start: async (runtime) => {
-          logger.info('Service start method called with runtime');
+          logger.info('Service start method called with runtime:', runtime ? 'provided' : 'undefined');
           // Store runtime for later use
           this.runtime = runtime;
+          
+          // Initialize Discord plugin if available
+          if (this.discordPlugin && typeof this.discordPlugin.init === 'function') {
+            try {
+              await this.discordPlugin.init();
+              logger.info('Discord plugin initialized from service start method');
+            } catch (err) {
+              logger.error('Failed to initialize Discord plugin from start method:', err);
+            }
+          }
+          
           return this;
         },
         stop: async () => {
@@ -85,61 +102,49 @@ export class ZAOBotService {
           if (this.keepAliveInterval) {
             clearInterval(this.keepAliveInterval);
           }
+          return true;
         }
       };
+      
+      // Store the service definition for later use
+      this.serviceDefinition = serviceDefinition;
       
       // Create the service using defineService as per ElizaOS documentation
       if (typeof defineService === 'function') {
         logger.info('Creating service with defineService and config:', JSON.stringify(serviceDefinition));
         this.serviceClass = defineService(serviceDefinition);
-        this.service = this;
-        logger.info('Service class created successfully');
+        logger.info('Service class created:', this.serviceClass ? 'success' : 'failed');
+      } else if (typeof ElizaCore.defineService === 'function') {
+        logger.info('Creating service with ElizaCore.defineService');
+        this.serviceClass = ElizaCore.defineService(serviceDefinition);
+        logger.info('Service class created with ElizaCore.defineService:', this.serviceClass ? 'success' : 'failed');
       } else {
-        logger.warn('defineService is not a function, using alternative approach');
-        
-        // Create a traditional service class as fallback
-        class ZAOBotServiceClass extends Service {
-          static serviceType = 'zao_bot';
-          capabilityDescription = this.config.description || 'An AI guide bot powered by ElizaOS';
-          
-          static async start(runtime) {
-            logger.info('Static start method called with runtime');
-            this.runtime = runtime;
-            return this;
-          }
-          
-          async stop() {
-            logger.info('Instance stop method called');
-            if (this.keepAliveInterval) {
-              clearInterval(this.keepAliveInterval);
-            }
-          }
+        logger.warn('defineService not available, using service definition directly');
+        this.serviceClass = serviceDefinition;
+      }
+      
+      // CRITICAL: Register the service with ElizaCore immediately after creation
+      if (this.serviceClass) {
+        if (typeof ElizaCore.registerService === 'function') {
+          logger.info('Registering service with ElizaCore.registerService');
+          ElizaCore.registerService(this.serviceClass);
+        } else if (typeof ElizaCore.addService === 'function') {
+          logger.info('Registering service with ElizaCore.addService');
+          ElizaCore.addService(this.serviceClass);
+        } else if (Array.isArray(ElizaCore.services)) {
+          logger.info('Adding service directly to ElizaCore.services array');
+          ElizaCore.services.push(this.serviceClass);
+        } else {
+          logger.warn('No method available to register service with ElizaCore');
+          // Create services array if it doesn't exist
+          ElizaCore.services = [this.serviceClass];
+          logger.info('Created ElizaCore.services array with service');
         }
-        
-        this.serviceClass = ZAOBotServiceClass;
-        this.service = this;
       }
       
-      // Log service properties to help with debugging
-      logger.info('Service class type:', typeof this.serviceClass);
-      logger.info('Service instance type:', typeof this.service);
+      // Store the service class for later use
+      this.service = this.serviceClass || ElizaCore;
       
-      if (typeof this.service === 'object') {
-        logger.info('Service is an object, checking for methods');
-        const serviceMethods = Object.getOwnPropertyNames(this.service);
-        logger.info('Service methods:', serviceMethods);
-        
-        // Check for instance methods
-        const instanceMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.service) || {});
-        logger.info('Service instance methods:', instanceMethods);
-      }
-      
-      // Check if the service has an init method
-      if (this.service && typeof this.service.init === 'function') {
-        logger.info('Service has init method, calling it');
-        await this.service.init();
-        logger.info('Service init called successfully');
-      }
     } catch (error) {
       logger.error('Failed to initialize ElizaOS service:', error);
       logger.warn('Continuing with ElizaCore as service');
@@ -161,21 +166,22 @@ export class ZAOBotService {
         return;
       }
       
-      logger.info('Discord plugin import type:', typeof DiscordPlugin);
-      
-      // Create Discord plugin configuration
+      // Configure Discord plugin
       const discordConfig = {
         token: process.env.DISCORD_API_TOKEN,
-        applicationId: process.env.DISCORD_APPLICATION_ID,
-        intents: ['Guilds', 'GuildMessages', 'MessageContent', 'DirectMessages'],
+        applicationId: process.env.DISCORD_APPLICATION_ID
       };
       
-      // Handle different export patterns based on ElizaOS plugin structure
+      logger.info('Discord plugin type:', typeof DiscordPlugin);
+      
+      // Initialize Discord plugin based on its type
       if (typeof DiscordPlugin === 'function') {
-        logger.info('Discord plugin is a constructor function, creating instance');
+        // DiscordPlugin is a constructor
+        logger.info('Creating Discord plugin instance with constructor');
         this.discordPlugin = new DiscordPlugin(discordConfig);
       } else if (typeof DiscordPlugin === 'object') {
-        logger.info('Discord plugin is an object, configuring directly');
+        // DiscordPlugin is already an instance
+        logger.info('Using Discord plugin as object instance');
         this.discordPlugin = DiscordPlugin;
         
         // Configure the plugin - ElizaOS plugins expect a config property
@@ -189,9 +195,9 @@ export class ZAOBotService {
       const discordPluginMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.discordPlugin) || {});
       logger.info('Discord plugin methods:', discordPluginMethods);
       
-      // Check if the plugin has services property (common in ElizaOS plugins)
+      // Check if the Discord plugin has services
       if (this.discordPlugin.services) {
-        logger.info('Discord plugin has services:', Array.isArray(this.discordPlugin.services) ? 
+        logger.info('Discord plugin services:', Array.isArray(this.discordPlugin.services) ? 
           this.discordPlugin.services.length : typeof this.discordPlugin.services);
       }
       
@@ -213,25 +219,26 @@ export class ZAOBotService {
       if (typeof ElizaCore.decryptedCharacter === 'function') {
         logger.info('Creating character with decryptedCharacter');
         try {
-          this.character = ElizaCore.decryptedCharacter({
+          const characterConfig = {
             name: this.config.name,
-            description: this.config.description,
-          });
-          logger.info('Character created successfully with decryptedCharacter');
+            description: this.config.description
+          };
+          
+          this.character = await ElizaCore.decryptedCharacter(characterConfig);
+          logger.info('Character created with decryptedCharacter');
         } catch (err) {
           logger.error('Error creating character with decryptedCharacter:', err);
         }
-      } 
-      
-      // Try encryptedCharacter if available
-      if (!this.character && typeof ElizaCore.encryptedCharacter === 'function') {
+      } else if (typeof ElizaCore.encryptedCharacter === 'function') {
         logger.info('Creating character with encryptedCharacter');
         try {
-          this.character = ElizaCore.encryptedCharacter({
+          const characterConfig = {
             name: this.config.name,
-            description: this.config.description,
-          });
-          logger.info('Character created successfully with encryptedCharacter');
+            description: this.config.description
+          };
+          
+          this.character = await ElizaCore.encryptedCharacter(characterConfig);
+          logger.info('Character created with encryptedCharacter');
         } catch (err) {
           logger.error('Error creating character with encryptedCharacter:', err);
         }
@@ -243,7 +250,7 @@ export class ZAOBotService {
         try {
           this.character = new ElizaCore.Character({
             name: this.config.name,
-            description: this.config.description,
+            description: this.config.description
           });
           logger.info('Character created successfully with Character constructor');
         } catch (err) {
@@ -267,7 +274,7 @@ export class ZAOBotService {
             logger.info(`Trying character creation with ${characterFunction}`);
             this.character = ElizaCore[characterFunction]({
               name: this.config.name,
-              description: this.config.description,
+              description: this.config.description
             });
             
             if (this.character) {
@@ -374,6 +381,18 @@ export class ZAOBotService {
         logger.info('Discord plugin initialized');
       }
       
+      // IMPORTANT: Make sure service is registered before initialization
+      if (this.serviceClass) {
+        // Double-check service registration
+        if (typeof ElizaCore.registerService === 'function') {
+          logger.info('Re-registering service with ElizaCore to ensure it\'s properly registered');
+          ElizaCore.registerService(this.serviceClass);
+        } else if (typeof ElizaCore.addService === 'function') {
+          logger.info('Re-registering service with ElizaCore.addService');
+          ElizaCore.addService(this.serviceClass);
+        }
+      }
+      
       // Use ElizaCore.init() as the primary initialization method
       // This is the correct approach based on ElizaOS documentation
       if (ElizaCore.init && typeof ElizaCore.init === 'function') {
@@ -394,11 +413,31 @@ export class ZAOBotService {
             if (serviceInstance !== this) {
               this.serviceInstance = serviceInstance;
             }
-          } else {
-            logger.warn('No serviceClass.start() method available');
           }
         } else {
-          logger.warn('No serviceClass.start() method available');
+          logger.warn('serviceClass.start() is not a function');
+          
+          // Last resort: Try to find any start method on ElizaCore
+          const elizaCoreMethods = Object.getOwnPropertyNames(ElizaCore);
+          const startMethods = elizaCoreMethods.filter(method => 
+            method.toLowerCase().includes('start') && typeof ElizaCore[method] === 'function'
+          );
+          
+          if (startMethods.length > 0) {
+            logger.info(`Found potential start methods on ElizaCore: ${startMethods.join(', ')}`);
+            for (const startMethod of startMethods) {
+              try {
+                logger.info(`Trying ElizaCore.${startMethod}()...`);
+                await ElizaCore[startMethod]();
+                logger.info(`ElizaCore.${startMethod}() called successfully`);
+                break;
+              } catch (err) {
+                logger.error(`Error calling ElizaCore.${startMethod}():`, err);
+              }
+            }
+          } else {
+            logger.warn('No start methods found on ElizaCore');
+          }
         }
       }
       

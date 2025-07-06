@@ -1,33 +1,32 @@
 services:
   # Background worker service for the ZAO AI Bot
   - type: worker
-    name: zao-ai-bot
+    name: zao-guide-bot
     env: docker
     dockerfilePath: ./render.Dockerfile
+    plan: free
     envVars:
       - key: DISCORD_API_TOKEN
         sync: false
       - key: DISCORD_APPLICATION_ID
         sync: false
-      - key: FARCASTER_NEYNAR_API_KEY
-        sync: false
-      - key: FARCASTER_SIGNER_UUID
-        sync: false
-      - key: FARCASTER_FID
-        sync: false
-      - key: FARCASTER_DRY_RUN
-        value: "true"
-      - key: ENABLE_CAST
-        value: "true"
-      - key: CAST_INTERVAL_MIN
-        value: "60"
-      - key: CAST_INTERVAL_MAX
-        value: "120"
-      - key: ENABLE_ACTION_PROCESSING
-        value: "true"
-      - key: ACTION_INTERVAL
-        value: "60"
-      - key: DAEMON_PROCESS
-        value: "true"
       - key: OPENAI_API_KEY
         sync: false
+      - key: FARCASTER_MNEMONIC
+        sync: false
+      - key: FARCASTER_APP_TOKEN
+        sync: false
+      - key: DAEMON_PROCESS
+        value: true
+      - key: FARCASTER_ENABLED
+        value: false
+      - key: DISCORD_ENABLED
+        value: true
+      - key: LOG_LEVEL
+        value: debug
+      - key: PROCESS_ACTIONS_INTERVAL_MS
+        value: 1000
+      - key: PROCESS_FARCASTER_INTERVAL_MS
+        value: 10000
+      - key: RENDER_SERVICE_TYPE
+        value: worker
