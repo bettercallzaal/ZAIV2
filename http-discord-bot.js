@@ -814,7 +814,7 @@ async function main() {
         
         try {
           // For debugging - log when polling specific channel
-          log('debug', `Polling channel ${channelId} for messages...`);
+          log('info', `Polling channel ${channelId} for messages...`);
           
           // Every 5 minutes, fetch the latest messages regardless of last ID
           // This helps ensure we don't miss messages due to API quirks
