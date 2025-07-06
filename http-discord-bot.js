@@ -78,7 +78,7 @@ const BOT_CONFIG = {
     }
   ],
   welcomeNewMembers: true,
-  welcomeMessage: "Welcome to The ZAO community! I'm ZAO AI, your guide to our decentralized artist ecosystem. Use ,help to see how I can assist you with onboarding and learning about our community."
+  welcomeMessage: "Welcome to The ZAO community! I'm ZAO AI, your guide to our decentralized artist ecosystem. Use ?help to see how I can assist you with onboarding and learning about our community."
 };
 
 // Basic logging
@@ -370,7 +370,7 @@ async function handleQuestion(channelId, question, username) {
   }
   
   // Default response for unknown questions
-  await sendMessage(channelId, `Thanks for your question, ${username}! To best help you, could you try rephrasing or using one of our commands? Type ,help to see all available commands, or ask specifically about topics like "respect tokens", "governance", "fractals", or "onboarding".`);
+  await sendMessage(channelId, `Thanks for your question, ${username}! To best help you, could you try rephrasing or using one of our commands? Type ?help to see all available commands, or ask specifically about topics like "respect tokens", "governance", "fractals", or "onboarding".`);
 }
 
 // Process messages from a channel
@@ -395,33 +395,33 @@ async function processMessages(channelId, lastMessageId) {
       const lowerContent = message.content.toLowerCase();
       
       // Check for command prefix
-      if (lowerContent.startsWith(',')) {
-        const command = lowerContent.split(' ')[0].substring(1); // Remove the , and get the command
+      if (lowerContent.startsWith('?')) {
+        const command = lowerContent.split(' ')[0].substring(1); // Remove the ? and get the command
         
         switch (command) {
           case 'ping':
-            log('info', 'Responding to ,ping command');
+            log('info', 'Responding to ?ping command');
             await sendMessage(channelId, 'Pong! The ZAO AI Bot is online and ready to help! 🌊');
             break;
             
           case 'help':
-            log('info', 'Responding to ,help command');
+            log('info', 'Responding to ?help command');
             await sendMessage(channelId, 'Welcome to ZAO AI! Here are the available commands:\n\n' +
               '**Basic Commands:**\n' +
-              '`,ping` - Check if the bot is responsive\n' +
-              '`,help` - Show this help message\n\n' +
+              '`?ping` - Check if the bot is responsive\n' +
+              '`?help` - Show this help message\n\n' +
               '**ZAO Information:**\n' +
-              '`,about` - Learn about The ZAO\n' +
-              '`,respect` - Information about $ZAO Respect tokens\n' +
-              '`,fractal` - Learn about ZAO Fractals\n' +
-              '`,events` - Information about upcoming events\n' +
-              '`,governance` - Learn about ZAO governance\n' +
-              '`,nexus` - Information about ZAO NEXUS\n' +
-              '`,web3` - How Web3 differs from Web2 for artists\n' +
-              '`,values` - Core values of The ZAO\n\n' +
+              '`?about` - Learn about The ZAO\n' +
+              '`?respect` - Information about $ZAO Respect tokens\n' +
+              '`?fractal` - Learn about ZAO Fractals\n' +
+              '`?events` - Information about upcoming events\n' +
+              '`?governance` - Learn about ZAO governance\n' +
+              '`?nexus` - Information about ZAO NEXUS\n' +
+              '`?web3` - How Web3 differs from Web2 for artists\n' +
+              '`?values` - Core values of The ZAO\n\n' +
               '**Onboarding:**\n' +
-              '`,onboard` - Begin your ZAO onboarding journey\n' +
-              '`,resources` - Get links to important ZAO resources\n\n' +
+              '`?onboard` - Begin your ZAO onboarding journey\n' +
+              '`?resources` - Get links to important ZAO resources\n\n' +
               'You can also mention me with any questions!');
             break;
             
@@ -701,16 +701,16 @@ async function handleNewMember(guildId, member) {
 ` +
         `1️⃣ Introduce yourself in this channel
 ` +
-        `2️⃣ Type ,onboard for a quick start guide
+        `2️⃣ Type \`?onboard\` for a quick start guide
 ` +
-        `3️⃣ Join our next community call (check ,events for details)
+        `3️⃣ Join our next community call (check \`?events\` for details)
 
 ` +
         `The ZAO is a decentralized impact network for creators built on Web3 principles of ownership, community, and economic agency. ` +
         `We're excited to have you join us on this journey!
 
 ` +
-        `Type ,help any time to see how I can assist you.`;
+        `Type \`?help\` any time to see how I can assist you.`;
       
       log('info', `Sending welcome message to channel ${welcomeChannelId}`);
       await sendMessage(welcomeChannelId, welcomeMessage);

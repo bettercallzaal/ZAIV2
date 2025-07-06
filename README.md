@@ -143,15 +143,15 @@ The ZAO AI Discord bot supports both text commands (prefixed with `!`) and slash
 
 ```
 # Basic Commands
-,help         - Show available commands
-,ping         - Check if bot is online
-,start        - Begin onboarding process
+?help         - Show available commands
+?ping         - Check if bot is online
+?start        - Begin onboarding process
 
 # ZAO Information
-,about        - Learn about The ZAO
-,respect      - Information about tokens
-,events       - Upcoming community events
-,governance   - ZAO governance system
+?about        - Learn about The ZAO
+?respect      - Information about tokens
+?events       - Upcoming community events
+?governance   - ZAO governance system
 
 # Slash Commands
 /help, /about, /respect, /events, etc.

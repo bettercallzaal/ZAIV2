@@ -6,26 +6,26 @@ Commands that can be triggered by typing in any channel the bot has access to:
 ### Basic Commands
 | Command | Description |
 | ------- | ----------- |
-| `,help` | Show a list of available commands |
-| `,ping` | Check if the bot is online and responsive |
-| `,onboard` | Start the onboarding process (same as `,start`) |
-| `,start` | Start the onboarding process |
-| `,resources` | Get links to important ZAO resources |
+| `?help` | Show a list of available commands |
+| `?ping` | Check if the bot is online and responsive |
+| `?onboard` | Start the onboarding process (same as `?start`) |
+| `?start` | Start the onboarding process |
+| `?resources` | Get links to important ZAO resources |
 
 ### ZAO Information Commands
 | Command | Description |
 | ------- | ----------- |
-| `,about` | Learn about The ZAO |
-| `,respect` | Information about $ZAO Respect tokens |
-| `,fractal` | Learn about ZAO Fractals |
-| `,events` | Information about upcoming events |
-| `,governance` | Learn about ZAO governance |
-| `,nexus` | Information about ZAO NEXUS |
+| `?about` | Learn about The ZAO |
+| `?respect` | Information about $ZAO Respect tokens |
+| `?fractal` | Learn about ZAO Fractals |
+| `?events` | Information about upcoming events |
+| `?governance` | Learn about ZAO governance |
+| `?nexus` | Information about ZAO NEXUS |
 
 ### Debug Commands
 | Command | Description |
 | ------- | ----------- |
-| `,debug` | Show debug information about the bot |
+| `?debug` | Show debug information about the bot |
 
 ## Slash Commands
 Commands that can be triggered using Discord's slash command interface:
