@@ -376,13 +376,16 @@ async function handleQuestion(channelId, question, username) {
 // Process messages from a channel
 async function processMessages(channelId, lastMessageId) {
   try {
-    // Get messages after the last processed message
+    // Get most recent messages (we'll use 'after' if we have a lastMessageId)
     let endpoint = `${DISCORD_API.CHANNELS}/${channelId}/messages?limit=10`;
     if (lastMessageId) {
+      // Use after to only get new messages after the last one we processed
       endpoint += `&after=${lastMessageId}`;
     }
     
     const messages = await discordRequest(endpoint);
+    
+    log('info', `Retrieved ${messages.length} messages from channel ${channelId}`);
     
     // Process messages in reverse order (oldest first)
     for (const message of messages.reverse()) {
@@ -393,9 +396,12 @@ async function processMessages(channelId, lastMessageId) {
       
       // Process commands
       const lowerContent = message.content.toLowerCase();
+      const trimmedContent = message.content.trim();
       
-      // Check for command prefix
-      if (lowerContent.startsWith('?')) {
+      // Check for command prefix (both case-sensitive and case-insensitive for robustness)
+      if (trimmedContent.startsWith('?') || lowerContent.startsWith('?')) {
+        log('info', `Command detected: ${trimmedContent}`);
+        
         const command = lowerContent.split(' ')[0].substring(1); // Remove the ? and get the command
         
         switch (command) {
@@ -807,15 +813,29 @@ async function main() {
         if (channels[channelId] === null) continue;
         
         try {
+          // For debugging - log when polling specific channel
+          log('debug', `Polling channel ${channelId} for messages...`);
+          
+          // Every 5 minutes, fetch the latest messages regardless of last ID
+          // This helps ensure we don't miss messages due to API quirks
+          const now = Date.now();
+          if (!global.lastForcedUpdate) global.lastForcedUpdate = {};
+          if (!global.lastForcedUpdate[channelId] || (now - global.lastForcedUpdate[channelId] > 300000)) {
+            log('info', `Forcing full update for channel ${channelId}`);
+            channels[channelId] = null; // Reset to get latest messages
+            global.lastForcedUpdate[channelId] = now;
+          }
+          
           // Process messages and update last message ID
           const result = await processMessages(channelId, channels[channelId]);
           
           // If result is null, the channel is inaccessible
           if (result === null) {
             log('warn', `Channel ${channelId} is inaccessible due to permissions. Skipping future polls.`);
+            channels[channelId] = null;
+          } else {
+            channels[channelId] = result;
           }
-          
-          channels[channelId] = result;
         } catch (error) {
           log('error', `Error polling channel ${channelId}: ${error.message}`);
         }
