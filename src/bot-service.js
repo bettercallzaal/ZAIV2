@@ -74,72 +74,94 @@ export class ZAOBotService {
       logger.info('Available ElizaCore methods:', elizaCoreMethods);
       
       // Create service definition according to ElizaOS documentation
-      const serviceDefinition = {
-        serviceType: 'zao_bot',
-        name: 'ZAO AI Bot', // Important: name is required
-        description: this.config.description || 'An AI guide bot powered by ElizaOS',
-        version: '1.0.0',
-        start: async (runtime) => {
-          logger.info('Service start method called with runtime:', runtime ? 'provided' : 'undefined');
-          // Store runtime for later use
-          this.runtime = runtime;
-          
-          // Initialize Discord plugin if available
-          if (this.discordPlugin && typeof this.discordPlugin.init === 'function') {
-            try {
-              await this.discordPlugin.init();
-              logger.info('Discord plugin initialized from service start method');
-            } catch (err) {
-              logger.error('Failed to initialize Discord plugin from start method:', err);
-            }
+      // IMPORTANT: Define service as a CLASS with static start and stop methods
+      // This is the format ElizaOS expects
+      function ZAOBotServiceClass() {
+        this.name = 'ZAO AI Bot';
+        this.description = this.config ? this.config.description : 'An AI guide bot powered by ElizaOS';
+        this.version = '1.0.0';
+        this.serviceType = 'zao_bot';
+      }
+      
+      // CRITICAL: Define static start and stop methods
+      ZAOBotServiceClass.start = async function(runtime) {
+        logger.info('Static service start method called with runtime:', runtime ? 'provided' : 'undefined');
+        // Initialize Discord plugin if available
+        if (this.discordPlugin && typeof this.discordPlugin.init === 'function') {
+          try {
+            await this.discordPlugin.init();
+            logger.info('Discord plugin initialized from service start method');
+          } catch (err) {
+            logger.error('Failed to initialize Discord plugin from start method:', err);
           }
-          
-          return this;
-        },
-        stop: async () => {
-          logger.info('Service stop method called');
-          // Cleanup logic
-          if (this.keepAliveInterval) {
-            clearInterval(this.keepAliveInterval);
-          }
-          return true;
         }
+        return this;
       };
+      
+      ZAOBotServiceClass.stop = async function() {
+        logger.info('Static service stop method called');
+        // Cleanup logic
+        if (this.keepAliveInterval) {
+          clearInterval(this.keepAliveInterval);
+        }
+        return true;
+      };
+      
+      // Store the service definition
+      const serviceDefinition = ZAOBotServiceClass;
       
       // Store the service definition for later use
       this.serviceDefinition = serviceDefinition;
       
-      // Create the service using defineService as per ElizaOS documentation
-      if (typeof defineService === 'function') {
-        logger.info('Creating service with defineService and config:', JSON.stringify(serviceDefinition));
-        this.serviceClass = defineService(serviceDefinition);
-        logger.info('Service class created:', this.serviceClass ? 'success' : 'failed');
-      } else if (typeof ElizaCore.defineService === 'function') {
-        logger.info('Creating service with ElizaCore.defineService');
-        this.serviceClass = ElizaCore.defineService(serviceDefinition);
-        logger.info('Service class created with ElizaCore.defineService:', this.serviceClass ? 'success' : 'failed');
+      // Use the service class directly instead of using defineService
+      // This ensures the start and stop methods are properly defined
+      this.serviceClass = ZAOBotServiceClass;
+      logger.info('Service class created directly:', this.serviceClass ? 'success' : 'failed');
+      logger.info('Service methods:', Object.getOwnPropertyNames(this.serviceClass));
+      
+      // Double check that start and stop are defined
+      if (typeof this.serviceClass.start !== 'function') {
+        logger.error('Start method is not defined on service class!');
       } else {
-        logger.warn('defineService not available, using service definition directly');
-        this.serviceClass = serviceDefinition;
+        logger.info('Start method is properly defined on service class');
+      }
+      
+      if (typeof this.serviceClass.stop !== 'function') {
+        logger.error('Stop method is not defined on service class!');
+      } else {
+        logger.info('Stop method is properly defined on service class');
       }
       
       // CRITICAL: Register the service with ElizaCore immediately after creation
+      // Try all possible registration methods to ensure it works
       if (this.serviceClass) {
+        // Method 1: Use registerService if available
         if (typeof ElizaCore.registerService === 'function') {
           logger.info('Registering service with ElizaCore.registerService');
           ElizaCore.registerService(this.serviceClass);
-        } else if (typeof ElizaCore.addService === 'function') {
+        }
+        
+        // Method 2: Use addService if available (try this anyway as a backup)
+        if (typeof ElizaCore.addService === 'function') {
           logger.info('Registering service with ElizaCore.addService');
           ElizaCore.addService(this.serviceClass);
-        } else if (Array.isArray(ElizaCore.services)) {
+        }
+        
+        // Method 3: Add directly to services array (try this anyway as a backup)
+        if (Array.isArray(ElizaCore.services)) {
           logger.info('Adding service directly to ElizaCore.services array');
           ElizaCore.services.push(this.serviceClass);
         } else {
-          logger.warn('No method available to register service with ElizaCore');
           // Create services array if it doesn't exist
           ElizaCore.services = [this.serviceClass];
           logger.info('Created ElizaCore.services array with service');
         }
+        
+        // Method 4: Add service as a direct property on ElizaCore
+        ElizaCore.ZAOBotService = this.serviceClass;
+        logger.info('Added service as direct property on ElizaCore');
+      } else {
+        logger.error('Service class is not defined, cannot register!');
       }
       
       // Store the service class for later use
