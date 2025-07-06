@@ -2,8 +2,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy only our minimal bot script
-COPY minimal-bot.js /app/
+# Copy our enhanced Discord bot script
+COPY enhanced-discord-bot.js /app/
 
 # Create .render-no-web-service file to prevent port scanning
 RUN touch /app/.render-no-web-service
@@ -21,9 +21,9 @@ echo "Node.js version: $(node --version)"\n\
 echo "Directory contents:"\n\
 ls -la\n\
 \n\
-# Run the minimal discord bot\n\
+# Run the enhanced discord bot\n\
 echo "Starting Discord Bot..." \n\
-node minimal-bot.js\n\
+node enhanced-discord-bot.js\n\
 \n\
 # If the bot exits, keep the container alive for logs\n\
 if [ $? -ne 0 ]; then\n\
