@@ -109,11 +109,21 @@ Customize your project by modifying:
 - `src/character.ts` - Character definition
 
 
-# ZaoGuide Discord Bot
+# ZAO AI Discord Bot
 
 ## Overview
 
-The ZaoGuide Discord bot is an AI-powered assistant designed to help new users understand The Zao ecosystem, earn $ZAO Respect tokens, and participate in the community's decentralized governance and activities. Built on ElizaOS, this bot provides a comprehensive onboarding experience for new community members while embodying the values of The ZAO (ZTalent Artist Organization) - a decentralized impact network for creators.
+The ZAO AI Discord bot is an AI-powered assistant designed to help new users understand The ZAO ecosystem, earn $ZAO Respect tokens, and participate in the community's decentralized governance and activities. It provides a comprehensive onboarding experience for new community members while embodying the values of The ZAO (ZTalent Artist Organization) - a decentralized impact network for creators.
+
+### Implementation Notes
+
+This project includes two bot implementations:
+
+1. **HTTP-based Discord Bot** (`http-discord-bot.js`): A lightweight bot implementation using only Node.js built-in modules, designed for maximum compatibility and minimal dependencies. This is the currently active implementation.
+
+2. **ElizaOS-based Bot** (in `src/` directory): A more feature-rich implementation built on ElizaOS with LLM integration capabilities (not currently active).
+
+The HTTP-based bot provides all core functionality with high reliability and minimal external dependencies, making it easy to deploy on services like Render.com.
 
 ## Key Features
 
@@ -122,6 +132,32 @@ The ZaoGuide Discord bot is an AI-powered assistant designed to help new users u
 - **Community Integration**: Guidance on joining fractal groups and Hivemind discussions
 - **Governance & Token Education**: Information about the Respect Game and earning $ZAO tokens
 - **Event Information**: Details about community events and competitions
+- **New Member Welcome**: Automatic welcome messages for new server members
+- **Slash Commands**: Rich interactive Discord slash commands
+
+## Bot Commands
+
+The ZAO AI Discord bot supports both text commands (prefixed with `!`) and slash commands. For a complete list of available commands and their descriptions, see the [Commands Documentation](COMMANDS.md).
+
+### Quick Command Reference
+
+```
+# Basic Commands
+!help         - Show available commands
+!ping         - Check if bot is online
+!start        - Begin onboarding process
+
+# ZAO Information
+!about        - Learn about The ZAO
+!respect      - Information about tokens
+!events       - Upcoming community events
+!governance   - ZAO governance system
+
+# Slash Commands
+/help, /about, /respect, /events, etc.
+```
+
+The bot also responds to direct mentions and questions.
 
 ## Installation Requirements
 
@@ -139,6 +175,31 @@ Before setting up the ZaoGuide Discord bot, ensure you have the following instal
 - **OpenAI API Key** or **Anthropic API Key**: For LLM capabilities
 
 ## Project Setup Guide
+
+### HTTP-based Bot Setup (Active Implementation)
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/zao-guide-bot.git
+   cd zao-guide-bot
+   ```
+
+2. Create a `.env` file with the following variables:
+   ```
+   # Required environment variables
+   DISCORD_API_TOKEN=your_bot_token
+   DISCORD_APPLICATION_ID=your_application_id
+   PORT=8080  # Optional, defaults to 8080
+   ```
+
+3. Run the bot directly with Node.js:
+   ```bash
+   node http-discord-bot.js
+   ```
+
+4. For deployment to services like Render.com, use the provided Dockerfile and start.sh script
+
+### ElizaOS-based Bot Setup (Alternative Implementation)
 
 ### Step 1: Environment Setup
 

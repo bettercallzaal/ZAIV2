@@ -636,7 +636,18 @@ async function respondToInteraction(interactionId, interactionToken, response) {
  */
 async function handleNewMember(guildId, member) {
   try {
-    log('info', `Processing welcome for user ${member.user?.username || 'unknown'} in guild ${guildId}`);
+    // For testing, only process welcome message for Zaal
+    // Change the user ID to match Zaal's user ID
+    const ZAAL_USER_ID = '435539760372449280'; // Replace this with Zaal's actual Discord user ID
+    const username = member.user?.username || 'unknown';
+    
+    log('info', `Processing welcome for user ${username} in guild ${guildId}`);
+    
+    // During testing, only welcome Zaal
+    if (member.user?.id !== ZAAL_USER_ID) {
+      log('info', `Skipping welcome for ${username} - only welcoming @zaal during testing`);
+      return;
+    }
     
     // Get guild channels using the proper endpoint format
     const endpoint = `/guilds/${guildId}/channels`;
@@ -679,7 +690,10 @@ async function handleNewMember(guildId, member) {
       const userId = member.user?.id || 'new member';
       const mentionTag = userId !== 'new member' ? `<@${userId}>` : 'new member';
       
-      const welcomeMessage = `Welcome to **The ZAO**, ${mentionTag}! 🌊\n\n` +
+      // Mark the message clearly as a test if we're in test mode
+      const testPrefix = '[TEST MODE] ';
+      
+      const welcomeMessage = `${testPrefix}Welcome to **The ZAO**, ${mentionTag}! 🌊\n\n` +
         `I'm ${BOT_CONFIG.name}, your guide to this creative community. To help you get started:\n\n` +
         `1️⃣ Introduce yourself in this channel\n` +
         `2️⃣ Type \`!onboard\` for a quick start guide\n` +
